@@ -1,88 +1,96 @@
+use std::{dbg, println, cell::{RefCell, RefMut}};
+
 use chroma::Chroma;
 use winit::{event_loop::{EventLoop, ControlFlow}, 
             window::WindowBuilder, dpi::PhysicalSize, 
             event::{Event, WindowEvent, ElementState, VirtualKeyCode, KeyboardInput}};
 
-#[derive(Default)]
-struct EntityComponents {
-    sprite_component: Option<SpriteComponent>,
-    position_component: Option<PositionComponent>,
-    velocity_component: Option<VelocityComponent>
-}
-
-struct SpriteComponent {
-    name: String,
-}
-
-struct PositionComponent {
-    x: f32,
-    y: f32
-}
-
-struct VelocityComponent {
-    x: f32,
-    y: f32
-}
-
 struct World {
-    chroma: Chroma,
-
-    sprite_components: Vec<Option<SpriteComponent>>,
-    position_components: Vec<Option<PositionComponent>>,
-    velocity_components: Vec<Option<VelocityComponent>>
+    entities_count: usize,
+    component_vecs: Vec<Box<dyn ComponentVec>>
 }
 
 impl World {
-    pub fn new(chroma: Chroma) -> Self {
+    fn new() -> Self {
         Self {
-            chroma,
-            sprite_components: Vec::new(),
-            position_components: Vec::new(),
-            velocity_components: Vec::new()
+            entities_count: 0,
+            component_vecs: Vec::new()
         }
     }
 
-    pub fn add_entity(&mut self, components: EntityComponents) {
-        self.sprite_components.push(components.sprite_component);
-        self.position_components.push(components.position_component);
-        self.velocity_components.push(components.velocity_component);
+    fn new_entity(&mut self) -> usize {
+        let entity_id = self.entities_count;
+        for component_vec in self.component_vecs.iter_mut() {
+            component_vec.push_none();
+        }
+        self.entities_count += 1;
+        entity_id
     }
 
-    pub fn velocity(&mut self) {
-        let zip = self.velocity_components.iter().zip(self.position_components.iter());
+    fn add_component_to_entity <ComponentType: 'static> (
+        &mut self, 
+        entity: usize, 
+        component: ComponentType) {
+            for component_vec in self.component_vecs.iter_mut() {
+                if let Some(component_vec) = component_vec.as_any_mut().downcast_mut::<RefCell<Vec<Option<ComponentType>>>>() {
+                    component_vec.get_mut()[entity] = Some(component);
+                    return;
+                }
+            }
 
-        let renderable = zip.filter_map(|(velocity, position): (&Option<VelocityComponent>, &Option<PositionComponent>)| { 
-            Some((velocity.as_ref()?, position.as_ref()?))
-        });
-
-        for (velocity, position) in renderable {
-            //position.x += velocity.x;
-            //position.y += velocity.y;
-        }
-    }
-
-    pub fn render(&mut self) {
-        let zip = self.sprite_components.iter().zip(self.position_components.iter());
-
-        let renderable = zip.filter_map(|(sprite, position): (&Option<SpriteComponent>, &Option<PositionComponent>)| { 
-            Some((sprite.as_ref()?, position.as_ref()?))
-        });
-
-        for (sprite, position) in renderable {
-            self.chroma.draw_sprite(
-                asset_loader::get_sprite(&sprite.name), 
-                position.x as u32, 
-                position.y as u32
-            );
-        }
+            let mut new_component_vec : Vec<Option<ComponentType>> =
+            Vec::with_capacity(self.entities_count);
         
-        self.chroma.render();
+            for _ in 0..self.entities_count {
+                new_component_vec.push(None);
+            }
+
+            new_component_vec[entity] = Some(component);
+            self.component_vecs.push(Box::new(RefCell::new(new_component_vec)));
+    }
+
+    fn borrow_component_vec <ComponentType: 'static> (&self) -> Option<RefMut<Vec<Option<ComponentType>>>> {
+        for component_vec in self.component_vecs.iter() {
+            if let Some(component_vec) = component_vec.as_any().downcast_ref::<RefCell<Vec<Option<ComponentType>>>>() {
+                return Some(component_vec.borrow_mut());
+            }
+        }
+        None
+    }
+}
+
+trait ComponentVec {
+    fn as_any(&self) -> &dyn std::any::Any;
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
+    fn push_none(&mut self);
+}
+
+impl<T: 'static> ComponentVec for RefCell<Vec<Option<T>>> {
+    fn push_none(&mut self) {
+        self.get_mut().push(None);
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self as &dyn std::any::Any
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self as &mut dyn std::any::Any
     }
 }
 
 fn main() {
     run();
 }
+
+struct Name(String);
+
+struct Position {
+    x: f32,
+    y: f32
+}
+
+struct Health(i32);
 
 #[cfg_attr(target_arch="wasm32", wasm_bindgen(start))]
 pub fn run() {
@@ -129,60 +137,32 @@ pub fn run() {
 
     // ECS
 
-    let mut world = World::new(
-        Chroma::new(32, 32, &window)
-    );
+    let mut world = World::new();
 
-    world.add_entity(
-        EntityComponents { 
-            sprite_component: 
-                Some(SpriteComponent { 
-                    name: "stone".to_string() 
-                }), 
-            position_component: 
-                Some(PositionComponent {
-                     x: 13.0, 
-                     y: 9.0 
-                }) ,
-            ..Default::default()
-         }
-    );
+    let e = world.new_entity();
 
-    world.add_entity(
-        EntityComponents { 
-            sprite_component: 
-                Some(SpriteComponent { 
-                    name: "grass".to_string() 
-                }), 
-            position_component: 
-                Some(PositionComponent {
-                     x: 4.0, 
-                     y: 10.0 
-                }),
-            ..Default::default()
-         }
-    );
+    world.add_component_to_entity(e, Name("First Entity".to_owned()));
 
-    world.add_entity(
-        EntityComponents { 
-            sprite_component: 
-                Some(SpriteComponent { 
-                    name: "sentinel".to_string() 
-                }), 
-            position_component: 
-                Some(PositionComponent {
-                     x: 1.0, 
-                     y: 5.0 
-                }),
-            velocity_component:
-                Some(VelocityComponent { 
-                    x: 0.1, 
-                    y: 0.1 
-                })
-         }
-    );
+    let e = world.new_entity();
 
-    world.render();
+    world.add_component_to_entity(e, Name("Second Entity".to_owned()));
+
+    world.add_component_to_entity(e, Health(10));
+    world.add_component_to_entity(e, Position {x: 0.5, y: 1.4});
+
+    let mut name_components = world.borrow_component_vec::<Name>().unwrap();
+
+    for name_component in name_components.iter_mut().filter_map(|f| f.as_mut()) {
+        println!("{}", name_component.0);
+    }
+
+    let mut health_components = world.borrow_component_vec::<Health>().unwrap();
+
+    for health_component in health_components.iter_mut().filter_map(|f| f.as_mut()) {
+        dbg!(health_component.0);
+        health_component.0 = -10;
+        dbg!(health_component.0);
+    }
 
     // EVENT LOOP
 
