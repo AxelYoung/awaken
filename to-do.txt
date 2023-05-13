@@ -1,0 +1,10 @@
+sprite component
+    requires a sprite to be loaded in when intialized
+    render that sprite at a given position
+
+struct SpriteComponent {
+    // Sprite file location?
+    name: &str
+    // x: f32
+    // y: f32
+}
