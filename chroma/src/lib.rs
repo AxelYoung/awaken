@@ -9,9 +9,6 @@ use winit::{window::Window, dpi::PhysicalSize};
 mod renderers;
 mod builder;
 
-pub const WIDTH: u32 = 32;
-pub const HEIGHT: u32 = 32;
-
 pub const SCALE: u32 = 4;
 
 pub const TILE_SIZE: u32 = 16;
@@ -29,6 +26,8 @@ pub struct ChromaContext {
 pub struct Chroma {
     context: ChromaContext,
     surface_size: PhysicalSize<u32>,
+    width: u16,
+    height: u16,
     alpha_mode: wgpu::CompositeAlphaMode,
     adapter: wgpu::Adapter,
     pixels: Vec<u8>,
@@ -52,6 +51,12 @@ impl Chroma {
                 alpha_mode: self.alpha_mode,
                 view_formats: vec![]
             });
+    }
+
+    pub fn clear(&mut self) {
+        let mut pixels: Vec<u8> = Vec::with_capacity(self.pixels.len());
+        pixels.resize_with(self.pixels.len(), Default::default);
+        self.pixels = pixels;
     }
 
     pub fn render(&self) {
@@ -124,7 +129,7 @@ impl Chroma {
     }
     
     pub fn draw_pixel(&mut self, pixel: &[u8], x: u32, y: u32) {
-        let index = ((y * WIDTH) + x) * 4;
+        let index = ((y * self.width as u32) + x) * 4;
         if pixel[3] == 0 { return }
         for offset in 0..4 {
             self.pixels[(index + offset) as usize] = pixel[offset as usize];

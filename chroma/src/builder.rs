@@ -78,10 +78,14 @@ impl<'win> ChromaBuilder<'win> {
             scaling_renderer
         };
 
+        
+
         let pixels = Chroma {
             context,
             adapter,
             surface_size,
+            width: self.width,
+            height: self.height,
             pixels,
             scaling_matrix_inverse,
             alpha_mode

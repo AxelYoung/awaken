@@ -3,7 +3,12 @@ use std::{dbg, println, cell::{RefCell, RefMut}};
 use chroma::Chroma;
 use winit::{event_loop::{EventLoop, ControlFlow}, 
             window::WindowBuilder, dpi::PhysicalSize, 
-            event::{Event, WindowEvent, ElementState, VirtualKeyCode, KeyboardInput}};
+            event::VirtualKeyCode};
+
+use winit_input_helper::WinitInputHelper;
+
+// In milliseconds
+const TICK_DURATION: u16 = 15;
 
 struct World {
     entities_count: usize,
@@ -83,14 +88,27 @@ fn main() {
     run();
 }
 
-struct Name(String);
+struct Sprite<'a>(&'a str);
 
 struct Position {
     x: f32,
     y: f32
 }
 
-struct Health(i32);
+struct Velocity {
+    x: f32,
+    y: f32
+}
+
+struct Moveable(f32);
+
+const SCREEN_WIDTH: u32 = 256;
+const SCREEN_HEIGHT: u32 = 224;
+
+const SCREEN_SCALE: u32 = 3;
+
+const WINDOW_WIDTH: u32 = SCREEN_WIDTH * SCREEN_SCALE;
+const WINDOW_HEIGHT: u32 = SCREEN_HEIGHT * SCREEN_SCALE;
 
 #[cfg_attr(target_arch="wasm32", wasm_bindgen(start))]
 pub fn run() {
@@ -112,7 +130,7 @@ pub fn run() {
 
     let window = WindowBuilder::new()
         .with_title("Awaken")
-        .with_inner_size(PhysicalSize { width: 640, height: 640})
+        .with_inner_size(PhysicalSize { width: WINDOW_WIDTH, height: WINDOW_HEIGHT})
         .with_resizable(false)
         .build(&event_loop)
         .unwrap();
@@ -121,7 +139,7 @@ pub fn run() {
         // Winit prevents sizing with CSS, so we have to set
         // the size manually when on web.
         use winit::dpi::PhysicalSize;
-        window.set_inner_size(PhysicalSize::new(640, 640));
+        window.set_inner_size(PhysicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT));
 
         use winit::platform::web::WindowExtWebSys;
         web_sys::window()
@@ -135,79 +153,125 @@ pub fn run() {
             .expect("Couldn't append canvas to document body.");
     }
 
+    // Renderer
+
+    let mut chroma = Chroma::new(SCREEN_WIDTH as u16, SCREEN_HEIGHT as u16, &window);
+
     // ECS
 
     let mut world = World::new();
 
     let e = world.new_entity();
 
-    world.add_component_to_entity(e, Name("First Entity".to_owned()));
+    world.add_component_to_entity(e, Sprite("stone"));
+    world.add_component_to_entity(e, Position {x: 30.0, y: 15.0});
+    world.add_component_to_entity(e, Velocity {x: 3.0, y: 0.0});
 
     let e = world.new_entity();
 
-    world.add_component_to_entity(e, Name("Second Entity".to_owned()));
+    world.add_component_to_entity(e, Sprite("grass"));
+    world.add_component_to_entity(e, Position {x: 70.0, y: 80.0});
+    world.add_component_to_entity(e, Velocity {x: 7.0, y: 0.1});
 
-    world.add_component_to_entity(e, Health(10));
-    world.add_component_to_entity(e, Position {x: 0.5, y: 1.4});
+    let e = world.new_entity();
 
-    let mut name_components = world.borrow_component_vec::<Name>().unwrap();
+    world.add_component_to_entity(e, Sprite("sentinel"));
+    world.add_component_to_entity(e, Position {x: 3.0, y: 5.0});
+    world.add_component_to_entity(e, Velocity {x: 0.0, y: 0.0});
+    world.add_component_to_entity(e, Moveable(2.0));
 
-    for name_component in name_components.iter_mut().filter_map(|f| f.as_mut()) {
-        println!("{}", name_component.0);
-    }
-
-    let mut health_components = world.borrow_component_vec::<Health>().unwrap();
-
-    for health_component in health_components.iter_mut().filter_map(|f| f.as_mut()) {
-        dbg!(health_component.0);
-        health_component.0 = -10;
-        dbg!(health_component.0);
-    }
+    let mut input_grabber = WinitInputHelper::new();
 
     // EVENT LOOP
 
-    event_loop.run(move |event, _, control_flow| match event {
-        Event::RedrawRequested(window_id) => {
+    let mut last_tick = instant::now();
+    let mut tick_time = 0.0;
 
-        },
-        Event::MainEventsCleared => {
+    event_loop.run(move |event, _, control_flow| {
 
-        },
-        Event::WindowEvent {
-            window_id,
-            ref event,
-        } => {
-            match event {
-                WindowEvent::CloseRequested
-                | WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::Escape),
-                            ..
-                        },
-                    ..
-                } => *control_flow = ControlFlow::Exit,
-                WindowEvent::Resized(physical_size) => {
+        if input_grabber.update(&event) {
+            tick_time += instant::now() - last_tick;
+            last_tick = instant::now();
 
-                },
-                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+            let input = input_manager(&mut input_grabber, control_flow);
+        
+            let mut sprite_components = world.borrow_component_vec::<Sprite>().unwrap();
+            let mut position_components = world.borrow_component_vec::<Position>().unwrap();
+    
+            let mut velocity_components = world.borrow_component_vec::<Velocity>().unwrap();
 
-                },
-                WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::Space),
-                            ..
-                        },
-                    ..
-                } => {
+            let mut moveable_components = world.borrow_component_vec::<Moveable>().unwrap();
 
+            let zip = velocity_components.iter_mut().zip(moveable_components.iter_mut());
+
+            for (velocity, moveable) in zip.filter_map(|(velocity, moveable)| Some((velocity.as_mut()?, moveable.as_mut()?))) {
+                
+                let dir_x : f32 = if input.right_pressed { 1.0 } else if input.left_pressed { -1.0 } else { 0.0 };
+                let dir_y : f32 = if input.up_pressed { -1.0 } else if input.down_pressed { 1.0 } else { 0.0 };
+
+                let magnitude = dir_x.abs() + dir_y.abs();
+
+                let normalized_x = dir_x / magnitude;
+                let normalized_y = dir_y / magnitude;
+
+                if magnitude != 0.0 {
+                    velocity.x = normalized_x * moveable.0;
+                    velocity.y = normalized_y * moveable.0;
                 }
-                _ => {}
             }
-        },
-        _ => {}
+
+            while tick_time >= TICK_DURATION as f64 {
+                // FIXED UPDATE LOGIC
+                
+                let zip = velocity_components.iter_mut().zip(position_components.iter_mut());
+
+                for (velocity, position) in zip.filter_map(|(velocity, position)| Some((velocity.as_mut()?, position.as_mut()?))) {
+                    position.x += velocity.x;
+                    position.y += velocity.y;
+
+                    velocity.x -= velocity.x * 0.1;
+                    velocity.y -= velocity.y * 0.1;
+                }
+                // FIXED UPDATE LOGIC END
+
+                tick_time -= TICK_DURATION as f64;
+            }
+
+            let zip = sprite_components.iter_mut().zip(position_components.iter_mut());
+        
+            chroma.clear();
+
+            for (sprite, position) in zip.filter_map(|(sprite, position)| Some((sprite.as_mut()?, position.as_mut()?))) {
+                chroma.draw_sprite(asset_loader::get_sprite(&sprite.0), position.x as u32, position.y as u32);
+            }
+        
+            chroma.render();
+        }
     });
+}
+
+fn input_manager(input: &mut WinitInputHelper, control_flow: &mut ControlFlow) -> Input {
+
+    let up_pressed = input.key_held(VirtualKeyCode::Up);
+    let down_pressed = input.key_held(VirtualKeyCode::Down);
+    let left_pressed = input.key_held(VirtualKeyCode::Left);
+    let right_pressed = input.key_held(VirtualKeyCode::Right);
+
+    if input.key_released(VirtualKeyCode::Escape) || input.close_requested() || input.destroyed() {
+        *control_flow = ControlFlow::Exit;
+    }
+
+    Input {
+        up_pressed,
+        down_pressed,
+        left_pressed,
+        right_pressed
+    }
+}
+
+struct Input {
+    up_pressed: bool,
+    down_pressed: bool,
+    left_pressed: bool,
+    right_pressed: bool
 }
