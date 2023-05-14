@@ -1,10 +1,16 @@
-sprite component
-    requires a sprite to be loaded in when intialized
-    render that sprite at a given position
+[] shorten the expression below into a single iterator
+    let mut sprite_components = world.borrow_component_vec::<Sprite>().unwrap();
+    let mut position_components = world.borrow_component_vec::<Position>().unwrap();
+    let zip = sprite_components.iter_mut().zip(position_components.iter_mut());
+    
+    for (sprite, position) in zip.filter_map(|(sprite, position)| Some((sprite.as_mut()?, position.as_mut()?))) {
+        chroma.draw_sprite(asset_loader::get_sprite(&sprite.0), position.x as u32, position.y as u32);
+    }
 
-struct SpriteComponent {
-    // Sprite file location?
-    name: &str
-    // x: f32
-    // y: f32
-}
+    theoretically it would be great if i could just pass in a vec of component types and then iterate over them all in a single line
+
+    for (sprite, position) in world.filter_entities(vec![Sprite, Position]) {
+
+    }
+
+    
