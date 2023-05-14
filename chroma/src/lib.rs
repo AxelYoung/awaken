@@ -118,6 +118,15 @@ impl Chroma {
     pub fn draw_tile(&mut self, sprite: &[u8], pos_x: u32, pos_y: u32) {
         self.draw_sprite(sprite, pos_x * TILE_SIZE, pos_y * TILE_SIZE);
     }
+
+    pub fn draw_sprite_from_sheet(&mut self, sprite: &[u8], index: u32, pos_x: u32, pos_y: u32) {
+        for y in 0..TILE_SIZE {
+            for x in 0..TILE_SIZE {
+                let pixel_index = (((y * TILE_SIZE) + x) * 4) + index * TILE_DATA_SIZE as u32;
+                self.draw_pixel(&sprite[pixel_index as usize..(pixel_index + 4) as usize], x + pos_x, y + pos_y)
+            }
+        }
+    }
     
     pub fn draw_sprite(&mut self, sprite: &[u8], pos_x: u32, pos_y: u32) {
         for y in 0..TILE_SIZE {

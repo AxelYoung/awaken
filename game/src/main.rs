@@ -1,6 +1,8 @@
 use std::{dbg, println, cell::{RefCell, RefMut, Ref}, any::Any, borrow::Borrow};
 
 use chroma::Chroma;
+use num::complex::ComplexFloat;
+use rand::Rng;
 use winit::{event_loop::{EventLoop, ControlFlow}, 
             window::WindowBuilder, dpi::PhysicalSize, 
             event::VirtualKeyCode};
@@ -71,6 +73,37 @@ impl World {
             self.component_vecs.push(Box::new(RefCell::new(new_component_vec)));
     }
 
+    fn remove_component_from_entity <ComponentType: 'static> (
+        &mut self,
+        entity: usize) {
+            for component_vec in self.component_vecs.iter_mut() {
+                if let Some(component_vec) = component_vec.as_any_mut().downcast_mut::<RefCell<Vec<Option<ComponentType>>>>() {
+                    component_vec.get_mut()[entity] = None;
+                    return;
+                }
+            }
+
+            let mut new_component_vec : Vec<Option<ComponentType>> =
+            Vec::with_capacity(self.entities_count);
+        
+            for _ in 0..self.entities_count {
+                new_component_vec.push(None);
+            }
+
+            self.component_vecs.push(Box::new(RefCell::new(new_component_vec)));
+        }
+
+    fn get_component_from_entity <ComponentType: 'static> (
+        &mut self,
+        entity: usize) -> Option<&mut Option<ComponentType>> {
+            for component_vec in self.component_vecs.iter_mut() {
+                if let Some(component_vec) = component_vec.as_any_mut().downcast_mut::<RefCell<Vec<Option<ComponentType>>>>() {
+                    return Some(&mut component_vec.get_mut()[entity]);
+                }
+            }
+            None
+        }
+
     fn borrow_components <ComponentType: 'static> (&self) -> Option<Ref<Vec<Option<ComponentType>>>> {
         for component_vec in self.component_vecs.iter() {
             if let Some(component_vec) = component_vec.as_any().downcast_ref::<RefCell<Vec<Option<ComponentType>>>>() {
@@ -114,7 +147,10 @@ fn main() {
     run();
 }
 
-struct Sprite<'a>(&'a str);
+struct Sprite<'a> {
+    name: &'a str,
+    index: Option<u32>
+}
 
 #[derive(PartialEq)]
 struct Position {
@@ -127,9 +163,11 @@ struct Velocity {
     y: f32
 }
 
-struct Collider(bool);
+struct Collider();
 
 struct Moveable(f32);
+
+struct Turnable();
 
 const SCREEN_WIDTH: u32 = 256;
 const SCREEN_HEIGHT: u32 = 224;
@@ -196,10 +234,25 @@ pub fn run() {
 
     let e = world.new_entity();
     
-    world.add_component_to_entity(e, Sprite("stone"));
-    world.add_component_to_entity(e, Position { x: 52.0, y: 50.0} );
-    world.add_component_to_entity(e, Velocity { x: 15.0, y: 0.0} );
-    world.add_component_to_entity(e, Collider(false));
+    world.add_component_to_entity(e, Sprite{ name: "stone", index: None });
+    world.add_component_to_entity(e, Position { x: 20.0, y: 50.0} );
+    world.add_component_to_entity(e, Velocity { x: 4.5, y: 0.0} );
+    world.add_component_to_entity(e, Collider());
+
+    let e = world.new_entity();
+    
+    world.add_component_to_entity(e, Sprite{ name: "stone", index: None });
+    world.add_component_to_entity(e, Position { x: 200.0, y: 50.0} );
+    world.add_component_to_entity(e, Velocity { x: -4.5, y: 0.0} );
+    world.add_component_to_entity(e, Collider());
+
+    let e = world.new_entity();
+    
+    world.add_component_to_entity(e, Sprite{ name: "stone", index: None });
+    world.add_component_to_entity(e, Position { x: 100.0, y: 80.0} );
+    world.add_component_to_entity(e, Velocity { x: 10.5, y: 2.0} );
+    world.add_component_to_entity(e, Collider());
+
 
     let mut input = WinitInputHelper::new();
 
@@ -221,6 +274,7 @@ pub fn run() {
 
 fn update(world: &mut World, input: &Input) {
     set_entity_velocity_iterator(world, input);
+    turn_iterator(world);
 }
 
 fn tick_manager(world: &mut World, tick_time: &mut f64, last_tick: &mut f64) {
@@ -260,12 +314,17 @@ fn draw_entity_iterator(world: &mut World, chroma: &mut Chroma) {
 }
 
 fn draw_entity(chroma: &mut Chroma, sprite: &Sprite, position: &Position) {
-    let sprite = asset_loader::get_sprite(sprite.0);
+    let sprite_data = asset_loader::get_sprite(sprite.name);
 
     let x = position.x as u32;
     let y = position.y as u32;
 
-    chroma.draw_sprite(sprite, x, y);
+    if let Some(index) = sprite.index {
+        chroma.draw_sprite_from_sheet(sprite_data, index, x, y);
+    } else {
+        chroma.draw_sprite(sprite_data, x, y);
+    }
+
 }
 
 fn input_manager(input: &mut WinitInputHelper, control_flow: &mut ControlFlow) -> Input {
@@ -297,12 +356,17 @@ struct Input {
 fn create_map_entities(world: &mut World) {
     for x in 0..16 {
         for y in 0..14 {
-            let sprite = Sprite(
-                match MAP[y][x] {
+            let sprite = Sprite {
+                name: match MAP[y][x] {
                     0 => {"stone"},
-                    _ => {"grass"},
-                }
-            );
+                    _ => match rand::thread_rng().gen_bool(0.5) {
+                        true => {"dirt"},
+                        false => {"grass"}
+                    }
+                },
+                index: None
+            };
+
             let position = Position { 
                 x: x as f32 * 16.0,
                 y: y as f32 * 16.0
@@ -311,7 +375,7 @@ fn create_map_entities(world: &mut World) {
             world.add_component_to_entity(e, sprite);
             world.add_component_to_entity(e, position);
             if MAP[y][x] == 0 {
-                world.add_component_to_entity(e, Collider(false));
+                world.add_component_to_entity(e, Collider());
             }
         }
     }
@@ -320,11 +384,12 @@ fn create_map_entities(world: &mut World) {
 fn create_player_entity(world: &mut World) {
     let e = world.new_entity();
 
-    world.add_component_to_entity(e, Sprite("sentinel"));
+    world.add_component_to_entity(e, Sprite{name: "sentinel", index: Some(1)});
     world.add_component_to_entity(e, Position {x: SCREEN_WIDTH as f32 / 2.0, y: SCREEN_HEIGHT as f32 / 2.0} );
     world.add_component_to_entity(e, Velocity {x: 0.0, y: 0.0} );
-    world.add_component_to_entity(e, Moveable(0.2));
-    world.add_component_to_entity(e, Collider(false));
+    world.add_component_to_entity(e, Moveable(1.0));
+    world.add_component_to_entity(e, Collider());
+    world.add_component_to_entity(e, Turnable());
 }
 
 fn move_entity_iterator(world: &mut World) {
@@ -336,6 +401,36 @@ fn move_entity_iterator(world: &mut World) {
     for (position, velocity) 
         in filter.filter_map(|(position, velocity)| Some((position.as_mut()?, velocity.as_ref()?))) {
             move_entity(position, velocity);
+    }
+}
+
+fn turn_iterator(world: &mut World) {
+    let mut sprites = world.borrow_components_mut::<Sprite>().unwrap();
+    let velocities = world.borrow_components::<Velocity>().unwrap();
+    let turnables = world.borrow_components::<Turnable>().unwrap();
+
+    let filter = sprites.iter_mut().zip(velocities.iter()).zip(turnables.iter());
+
+    for ((sprite, velocity), _)
+        in filter.filter_map(|((sprite, velocity), turnable)| 
+        Some(((sprite.as_mut()?, velocity.as_ref()?), turnable.as_ref()?))) {
+            turn(sprite, velocity);
+    }
+}
+
+fn turn(sprite: &mut Sprite, velocity: &Velocity) {
+    if velocity.y.abs() > 0.1 {
+        if velocity.y > 0.0 {
+            sprite.index = Some(0);
+        } else if velocity.y < 0.0 {
+            sprite.index = Some(1);
+        }
+    } else if velocity.x.abs() > 0.1 {
+        if velocity.x > 0.0 {
+            sprite.index = Some(2);
+        } else if velocity.x < 0.0 {
+            sprite.index = Some(3);
+        }
     }
 }
 
@@ -361,29 +456,40 @@ fn velocity_drag(velocity: &mut Velocity) {
 }
 
 fn check_collision_iter(world: &mut World) {
+
+    let mut collided : Vec<usize> = vec![];
+    let mut collided_velocities : Vec<(f32, f32)> = vec![];
+{
     let positions = world.borrow_components::<Position>().unwrap();
     let colliders = world.borrow_components::<Collider>().unwrap();
     let mut velocities = world.borrow_components_mut::<Velocity>().unwrap();
 
-    let filter = positions.iter().zip(colliders.iter()).zip(velocities.iter_mut());
-    
-    for ((position_a, _), velocity) 
-        in filter.filter_map(|((position, collider), velocity)| Some(((position.as_ref()?, collider.as_ref()?), velocity.as_mut()?))) {
-            
+    let filter = positions.iter().zip(colliders.iter()).zip(velocities.iter_mut()).enumerate();
+
+    for (e, (position_a, _), velocity) 
+        in filter.filter_map(|(e, ((position, collider), velocity))| Some((e, (position.as_ref()?, collider.as_ref()?), velocity.as_mut()?))) {
             let filter_b = positions.iter().zip(colliders.iter());
             
             for (position_b, _) in filter_b.filter_map(|(position, collider)| Some((position.as_ref()?, collider.as_ref()?))) {
                 if position_a == position_b { continue; }
-                if let Some(normal) = check_collision(position_a, position_b) {
-                    velocity.x *= -normal.0;
-                    velocity.y *= -normal.1;
-                    println!("Velocity set to {}, {}", velocity.x, velocity.y);
+                if check_collision(position_a, position_b) {
+                    collided_velocities.push((velocity.x / 2.0, velocity.y / 2.0));
+                    velocity.x = 0.0;
+                    velocity.y = 0.0;
+                    collided.push(e);
                 }
             }
     }
 }
+    for (e, velocity) in collided.iter().zip(collided_velocities) {
+        if let Some(Some(position)) = world.get_component_from_entity::<Position>(*e) {
+            position.x -= velocity.0;
+            position.y -= velocity.1;
+        }
+    }
+}
 
-fn check_collision(pos_a: &Position, pos_b: &Position) -> Option<(f32, f32)> {
+fn check_collision(pos_a: &Position, pos_b: &Position) -> bool {
     let right_a = pos_a.x + 16.0;
     let bot_a = pos_a.y + 16.0;
     let right_b = pos_b.x + 16.0;
@@ -400,10 +506,10 @@ fn check_collision(pos_a: &Position, pos_b: &Position) -> Option<(f32, f32)> {
         let normal_length = (normal.0 * normal.0 + normal.1 * normal.1).sqrt();
         let normalized_normal = (normal.0 / normal_length, normal.1 / normal_length);
 
-        return Some(normalized_normal);
+        return true;
     }
 
-    None
+    false
 }
 
 fn set_entity_velocity_iterator(world: &mut World, input: &Input) {
@@ -428,7 +534,7 @@ fn set_entity_velocity(velocity: &mut Velocity, speed: f32, input: &Input) {
     let normalized_y = dir_y / magnitude;
 
     if magnitude != 0.0 {
-        velocity.x += normalized_x * speed;
-        velocity.y += normalized_y * speed;
+        velocity.x = normalized_x * speed;
+        velocity.y = normalized_y * speed;
     }
 }
