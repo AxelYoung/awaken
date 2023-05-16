@@ -1,6 +1,9 @@
 [] shorten the expression below into a single iterator
-    let mut sprite_components = world.borrow_component_vec::<Sprite>().unwrap();
-    let mut position_components = world.borrow_component_vec::<Position>().unwrap();
+    // let mut sprite_components = world.borrow_component_vec::<Sprite>().unwrap();
+    // let mut position_components = world.borrow_component_vec::<Position>().unwrap();
+    
+    
+    
     let zip = sprite_components.iter_mut().zip(position_components.iter_mut());
     
     for (sprite, position) in zip.filter_map(|(sprite, position)| Some((sprite.as_mut()?, position.as_mut()?))) {
@@ -13,4 +16,8 @@
 
     }
 
-    
+[] fix the player collision 
+[] lighting system
+[] trail renderer
+[] particles
+[] derive compononent type trait 

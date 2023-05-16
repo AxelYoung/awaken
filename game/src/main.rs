@@ -1,7 +1,6 @@
-use std::{dbg, println, cell::{RefCell, RefMut, Ref}, any::Any, borrow::Borrow};
+use std::{dbg, println, cell::{RefCell, RefMut, Ref}, any::Any};
 
 use chroma::Chroma;
-use num::complex::ComplexFloat;
 use rand::Rng;
 use winit::{event_loop::{EventLoop, ControlFlow}, 
             window::WindowBuilder, dpi::PhysicalSize, 
@@ -20,7 +19,7 @@ const MAP: [[u8;16];14] = [
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0],
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
@@ -33,6 +32,32 @@ struct World {
     entities_count: usize,
     component_vecs: Vec<Box<dyn ComponentVec>>
 }
+
+macro_rules! borrow_components {
+    ($first:ident, $($component:ident),+ ; $world:expr, $logic:expr) => {{
+        let first = $world.borrow_components::<$first>().unwrap();
+        let iter = first.iter().filter_map(|f| f.as_ref());
+
+        $(
+            let comp = $world.borrow_components::<$component>().unwrap();
+            let iter = iter.zip(comp.iter().filter_map(|f| f.as_ref()));
+        )*
+
+        for ($first, $($component),*) in iter {
+            $logic($first, $($component),*);
+        }
+    }};
+
+    ($first:ident; $world:expr, $logic:expr) => {{
+        let first = $world.borrow_components::<$first>().unwrap();
+        let iter = first.iter().filter_map(|f| f.as_ref());
+
+        for $first in iter {
+            $logic($first);
+        }
+    }};
+}
+
 
 impl World {
     fn new() -> Self {
@@ -121,6 +146,15 @@ impl World {
         }
         None
     }
+
+    fn borrow_components_box <ComponentType: 'static> (&self) -> Option<&Box<dyn ComponentVec>> {
+        for component_vec in self.component_vecs.iter() {
+            if let Some(_) = component_vec.as_any().downcast_ref::<RefCell<Vec<Option<ComponentType>>>>() {
+                return Some(component_vec);
+            }
+        }
+        None
+    }
 }
 
 trait ComponentVec {
@@ -147,17 +181,19 @@ fn main() {
     run();
 }
 
+#[derive(Debug)]
 struct Sprite<'a> {
     name: &'a str,
     index: Option<u32>
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 struct Position {
     x: f32,
     y: f32
 }
 
+#[derive(Debug)]
 struct Velocity {
     x: f32,
     y: f32
@@ -172,7 +208,7 @@ struct Turnable();
 const SCREEN_WIDTH: u32 = 256;
 const SCREEN_HEIGHT: u32 = 224;
 
-const SCREEN_SCALE: u32 = 3;
+const SCREEN_SCALE: u32 = 4;
 
 const WINDOW_WIDTH: u32 = SCREEN_WIDTH * SCREEN_SCALE;
 const WINDOW_HEIGHT: u32 = SCREEN_HEIGHT * SCREEN_SCALE;
@@ -253,7 +289,6 @@ pub fn run() {
     world.add_component_to_entity(e, Velocity { x: 10.5, y: 2.0} );
     world.add_component_to_entity(e, Collider());
 
-
     let mut input = WinitInputHelper::new();
 
     // EVENT LOOP
@@ -302,6 +337,7 @@ fn draw(world: &mut World, chroma: &mut Chroma){
 }
 
 fn draw_entity_iterator(world: &mut World, chroma: &mut Chroma) {
+    /*
     let sprites = world.borrow_components::<Sprite>().unwrap();
     let positions = world.borrow_components::<Position>().unwrap();
 
@@ -311,6 +347,11 @@ fn draw_entity_iterator(world: &mut World, chroma: &mut Chroma) {
         in filter.filter_map(|(sprite, position)| Some((sprite.as_ref()?, position.as_ref()?))) {
             draw_entity(chroma, sprite, position);
     }
+     */
+
+    borrow_components!(Sprite, Position; world, |sprite, position|  {
+        draw_entity(chroma, sprite, position);
+    });
 }
 
 fn draw_entity(chroma: &mut Chroma, sprite: &Sprite, position: &Position) {
