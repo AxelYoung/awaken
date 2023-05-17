@@ -21,7 +21,7 @@ const MAP: [[u8;16];14] = [
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-    [0,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
@@ -52,7 +52,7 @@ struct Velocity {
     y: f32
 }
 
-struct Collider();
+struct Collider{}
 struct Moveable {
     speed: f32
 }
@@ -126,21 +126,21 @@ pub fn run() {
     world.add_component_to_entity(e, Sprite{ name: "stone", index: None });
     world.add_component_to_entity(e, Position { x: 20.0, y: 50.0} );
     world.add_component_to_entity(e, Velocity { x: 4.5, y: 0.0} );
-    world.add_component_to_entity(e, Collider());
+    world.add_component_to_entity(e, Collider{});
 
     let e = world.new_entity();
     
     world.add_component_to_entity(e, Sprite{ name: "stone", index: None });
     world.add_component_to_entity(e, Position { x: 200.0, y: 50.0} );
     world.add_component_to_entity(e, Velocity { x: -4.5, y: 0.0} );
-    world.add_component_to_entity(e, Collider());
+    world.add_component_to_entity(e, Collider{});
 
     let e = world.new_entity();
     
     world.add_component_to_entity(e, Sprite{ name: "stone", index: None });
     world.add_component_to_entity(e, Position { x: 100.0, y: 80.0} );
     world.add_component_to_entity(e, Velocity { x: 10.5, y: 2.0} );
-    world.add_component_to_entity(e, Collider());
+    world.add_component_to_entity(e, Collider{});
 
     let mut input = WinitInputHelper::new();
 
@@ -176,9 +176,9 @@ fn tick_manager(world: &mut World, tick_time: &mut f64, last_tick: &mut f64) {
 }
 
 fn fixed_update(world: &mut World) {
-    check_collision_iter(world);
+    check_collisions(world);
     move_entity(world);
-    velocity_drag_iterator(world);
+    velocity_drag(world);
 }
 
 fn draw(world: &mut World, chroma: &mut Chroma){
@@ -253,7 +253,7 @@ fn create_map_entities(world: &mut World) {
             world.add_component_to_entity(e, sprite);
             world.add_component_to_entity(e, position);
             if MAP[y][x] == 0 {
-                world.add_component_to_entity(e, Collider());
+                world.add_component_to_entity(e, Collider{});
             }
         }
     }
@@ -266,80 +266,73 @@ fn create_player_entity(world: &mut World) {
     world.add_component_to_entity(e, Position {x: SCREEN_WIDTH as f32 / 2.0, y: SCREEN_HEIGHT as f32 / 2.0} );
     world.add_component_to_entity(e, Velocity {x: 0.0, y: 0.0} );
     world.add_component_to_entity(e, Moveable { speed: 1.0 });
-    world.add_component_to_entity(e, Collider());
+    world.add_component_to_entity(e, Collider{});
 }
 
 fn move_entity(world: &mut World) {
-    let expr = |velocity: &Velocity, position: &mut Position| {
-        position.x += velocity.x;
-        position.y += velocity.y;
-    
-        position.x = position.x.clamp(0.0, SCREEN_WIDTH as f32 - 16.0);
-        position.y = position.y.clamp(0.0, SCREEN_HEIGHT as f32 - 16.0);
-    };
-
-    iterate_entities!(world, [Velocity], (Position), expr);
+    iterate_entities!(world, [Velocity], (Position), 
+        |velocity: &Velocity, position: &mut Position| {
+            position.x += velocity.x;
+            position.y += velocity.y;
+        
+            position.x = position.x.clamp(0.0, SCREEN_WIDTH as f32 - 16.0);
+            position.y = position.y.clamp(0.0, SCREEN_HEIGHT as f32 - 16.0);
+    });
 }
 
 fn turn(world: &mut World) {
-    let expr = |velocity: &Velocity, _, sprite: &mut Sprite| {
-        if velocity.y.abs() > 0.1 {
-            if velocity.y > 0.0 {
-                sprite.index = Some(0);
-            } else if velocity.y < 0.0 {
-                sprite.index = Some(1);
-            }
-        } else if velocity.x.abs() > 0.1 {
-            if velocity.x > 0.0 {
-                sprite.index = Some(2);
-            } else if velocity.x < 0.0 {
-                sprite.index = Some(3);
-            }
-        }
-    };
-
-    iterate_entities!(world, [Velocity, Moveable], (Sprite), expr);
-}
-
-
-fn velocity_drag_iterator(world: &mut World) {
-    let expr = |velocity: &mut Velocity| {
-        velocity.x -= velocity.x * 0.05;
-        velocity.y -= velocity.y * 0.05;
-    };
-
-    iterate_entities!(world, (Velocity,), expr);
-}
-
-
-fn check_collision_iter(world: &mut World) {
-
-    let mut collided : Vec<usize> = vec![];
-    let mut collided_velocities : Vec<(f32, f32)> = vec![];
-{
-    let positions = world.borrow_components::<Position>().unwrap();
-    let colliders = world.borrow_components::<Collider>().unwrap();
-    let mut velocities = world.borrow_components_mut::<Velocity>().unwrap();
-
-    let filter = positions.iter().zip(colliders.iter()).zip(velocities.iter_mut()).enumerate();
-
-    for (e, (position_a, _), velocity) 
-        in filter.filter_map(|(e, ((position, collider), velocity))| Some((e, (position.as_ref()?, collider.as_ref()?), velocity.as_mut()?))) {
-            let filter_b = positions.iter().zip(colliders.iter());
-            
-            for (position_b, _) in filter_b.filter_map(|(position, collider)| Some((position.as_ref()?, collider.as_ref()?))) {
-                if position_a == position_b { continue; }
-                if check_collision(position_a, position_b) {
-                    collided_velocities.push((velocity.x / 2.0, velocity.y / 2.0));
-                    velocity.x = 0.0;
-                    velocity.y = 0.0;
-                    collided.push(e);
+    iterate_entities!(world, [Velocity, Moveable], (Sprite), 
+        |velocity: &Velocity, _, sprite: &mut Sprite| {
+            if velocity.y.abs() > 0.1 {
+                if velocity.y > 0.0 {
+                    sprite.index = Some(0);
+                } else if velocity.y < 0.0 {
+                    sprite.index = Some(1);
+                }
+            } else if velocity.x.abs() > 0.1 {
+                if velocity.x > 0.0 {
+                    sprite.index = Some(2);
+                } else if velocity.x < 0.0 {
+                    sprite.index = Some(3);
                 }
             }
-    }
+        }
+    );
 }
-    for (e, velocity) in collided.iter().zip(collided_velocities) {
-        if let Some(Some(position)) = world.get_component_from_entity::<Position>(*e) {
+
+
+fn velocity_drag(world: &mut World) {
+    iterate_entities!(world, (Velocity), 
+        |velocity: &mut Velocity| {
+            velocity.x -= velocity.x * 0.05;
+            velocity.y -= velocity.y * 0.05;
+        }
+    );
+}
+
+fn check_collisions(world: &mut World) {
+    let mut collided : Vec<usize> = vec![];
+    let mut collided_velocities : Vec<(f32, f32)> = vec![];
+
+    iterate_entities_with_id!(world, [Position, Collider], (Velocity), 
+        |id, position_a: &Position, _, velocity: &mut Velocity| {            
+            iterate_entities!(world, [Position, Collider], 
+                |position_b: &Position, _| {
+                    if position_a != position_b {
+                        if check_collision(position_a, position_b) {
+                            collided_velocities.push((velocity.x / 2.0, velocity.y / 2.0));
+                            velocity.x = 0.0;
+                            velocity.y = 0.0;
+                            collided.push(id);
+                        }
+                    }
+                }
+            );
+        }
+    );
+
+    for (id, velocity) in collided.iter().zip(collided_velocities) {
+        if let Some(Some(position)) = world.get_component_from_entity::<Position>(*id) {
             position.x -= velocity.0;
             position.y -= velocity.1;
         }
@@ -353,16 +346,6 @@ fn check_collision(pos_a: &Position, pos_b: &Position) -> bool {
     let bot_b = pos_b.y + 16.0;
 
     if pos_a.x < right_b && right_a > pos_b.x && pos_a.y < bot_b && bot_a > pos_b.y {
-
-        let center_a = (pos_a.x + 8.0, pos_a.y + 8.0);
-        let center_b = (pos_b.x + 8.0, pos_b.y + 8.0);
-
-        let dir = (pos_b.x - pos_a.x, pos_b.y - pos_a.y);
-        let normal = (-dir.1, dir.0);
-
-        let normal_length = (normal.0 * normal.0 + normal.1 * normal.1).sqrt();
-        let normalized_normal = (normal.0 / normal_length, normal.1 / normal_length);
-
         return true;
     }
 
@@ -370,20 +353,20 @@ fn check_collision(pos_a: &Position, pos_b: &Position) -> bool {
 }
 
 fn set_entity_velocity(world: &mut World, input: &Input) {
-    let expr = |moveable: &Moveable, velocity: &mut Velocity| {
-        let dir_x : f32 = if input.right_pressed { 1.0 } else if input.left_pressed { -1.0 } else { 0.0 };
-        let dir_y : f32 = if input.up_pressed { -1.0 } else if input.down_pressed { 1.0 } else { 0.0 };
-    
-        let magnitude = dir_x.abs() + dir_y.abs();
-    
-        let normalized_x = dir_x / magnitude;
-        let normalized_y = dir_y / magnitude;
-    
-        if magnitude != 0.0 {
-            velocity.x = normalized_x * moveable.speed;
-            velocity.y = normalized_y * moveable.speed;
+    iterate_entities!(world, [Moveable], (Velocity), 
+        |moveable: &Moveable, velocity: &mut Velocity| {
+            let dir_x : f32 = if input.right_pressed { 1.0 } else if input.left_pressed { -1.0 } else { 0.0 };
+            let dir_y : f32 = if input.up_pressed { -1.0 } else if input.down_pressed { 1.0 } else { 0.0 };
+        
+            let magnitude = dir_x.abs() + dir_y.abs();
+        
+            let normalized_x = dir_x / magnitude;
+            let normalized_y = dir_y / magnitude;
+        
+            if magnitude != 0.0 {
+                velocity.x = normalized_x * moveable.speed;
+                velocity.y = normalized_y * moveable.speed;
+            }
         }
-    };
-
-    iterate_entities!(world, [Moveable], (Velocity), expr);
+    );
 }
