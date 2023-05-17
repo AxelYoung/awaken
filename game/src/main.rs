@@ -1,4 +1,6 @@
-use std::{dbg, println, cell::{RefCell, RefMut, Ref}, any::Any};
+use std::{dbg, println, cell::{RefCell, RefMut, Ref}, any::Any, iter::Flatten};
+
+use itertools::{Itertools, multizip};
 
 use chroma::Chroma;
 use rand::Rng;
@@ -33,29 +35,76 @@ struct World {
     component_vecs: Vec<Box<dyn ComponentVec>>
 }
 
-macro_rules! borrow_components {
-    ($first:ident, $($component:ident),+ ; $world:expr, $logic:expr) => {{
-        let first = $world.borrow_components::<$first>().unwrap();
-        let iter = first.iter().filter_map(|f| f.as_ref());
+macro_rules! iterate_entities {
+
+    // This matches any number of immutable
+    ($world:expr;  
+        $($comps:ident),*;
+        $logic:expr) => {{
 
         $(
-            let comp = $world.borrow_components::<$component>().unwrap();
-            let iter = iter.zip(comp.iter().filter_map(|f| f.as_ref()));
+            let comp_recur = $world.borrow_components::<$comps>().unwrap();
+            let $comps = comp_recur.iter();
         )*
 
-        for ($first, $($component),*) in iter {
-            $logic($first, $($component),*);
+        let iter = multizip(($($comps),*));
+        
+        let iter = iter.filter_map(|($($comps),*)| Some((($($comps.as_ref()?),*))));
+
+        for ($($comps),*) in iter {
+            $logic($($comps),*);
         }
     }};
 
-    ($first:ident; $world:expr, $logic:expr) => {{
-        let first = $world.borrow_components::<$first>().unwrap();
-        let iter = first.iter().filter_map(|f| f.as_ref());
+    
+    // This matches any number of immutable and mutable components
+    ($world:expr; 
+        $($comps:ident),* |
+        $($comps_mut:ident),*; 
+        $logic:expr) => {{
 
-        for $first in iter {
-            $logic($first);
+        $(
+            let comp_recur = $world.borrow_components::<$comps>().unwrap();
+            let $comps = comp_recur.iter();
+        )*
+
+        $(
+            let mut comp_mut_recur = $world.borrow_components_mut::<$comps_mut>().unwrap();
+            let $comps_mut = comp_mut_recur.iter_mut();
+        )*
+
+        let iter = multizip(($($comps),*, $($comps_mut),*));
+
+        let iter = iter.filter_map(|($($comps),*, $($comps_mut),*)| Some((($($comps.as_ref()?),*, $($comps_mut.as_mut()?),*))));
+
+        for ($($comps),*, $($comps_mut),*) in iter {
+            $logic($($comps),*, $($comps_mut),*);
         }
     }};
+    /* 
+        ($world:expr; 
+        $comp:ident, $($comps:ident),* |
+        $($comps_mut:ident),*; 
+        $logic:expr) => {{
+
+        let comp = $world.borrow_components::<$comp>().unwrap();
+        let iter = comp.iter().filter_map(|f| Some(f.as_ref()?));
+
+        $(
+            let comp = $world.borrow_components::<$comps>().unwrap();
+            let iter = iter.zip(comp.iter().filter_map(|f| Some(f.as_ref()?)));
+        )*
+
+        $(
+            let mut comp_mut = $world.borrow_components_mut::<$comps_mut>().unwrap();
+            let iter = iter.zip(comp_mut.iter_mut().filter_map(|f| Some(f.as_mut()?)));
+        )*
+
+        for (($comp, $($comps),*,), $($comps_mut),*) in iter {
+            $logic($comp, $($comps),*, $($comps_mut),*);
+        }
+    }};
+     */
 }
 
 
@@ -146,15 +195,6 @@ impl World {
         }
         None
     }
-
-    fn borrow_components_box <ComponentType: 'static> (&self) -> Option<&Box<dyn ComponentVec>> {
-        for component_vec in self.component_vecs.iter() {
-            if let Some(_) = component_vec.as_any().downcast_ref::<RefCell<Vec<Option<ComponentType>>>>() {
-                return Some(component_vec);
-            }
-        }
-        None
-    }
 }
 
 trait ComponentVec {
@@ -201,9 +241,9 @@ struct Velocity {
 
 struct Collider();
 
-struct Moveable(f32);
-
-struct Turnable();
+struct Moveable {
+    speed: f32
+}
 
 const SCREEN_WIDTH: u32 = 256;
 const SCREEN_HEIGHT: u32 = 224;
@@ -230,6 +270,7 @@ pub fn run() {
     let event_loop = EventLoop::new();
 
     // CREATE WINDOW
+    
 
     let window = WindowBuilder::new()
         .with_title("Awaken")
@@ -331,41 +372,27 @@ fn fixed_update(world: &mut World) {
 fn draw(world: &mut World, chroma: &mut Chroma){
     chroma.clear();
         
-    draw_entity_iterator(world, chroma);
+    draw_entity(world, chroma);
 
     chroma.render();
 }
 
-fn draw_entity_iterator(world: &mut World, chroma: &mut Chroma) {
-    /*
-    let sprites = world.borrow_components::<Sprite>().unwrap();
-    let positions = world.borrow_components::<Position>().unwrap();
 
-    let filter = sprites.iter().zip(positions.iter());
+fn draw_entity(world: &mut World, chroma: &mut Chroma) {
+    let mut expr = |sprite : &Sprite, position: &Position| {
+        let sprite_data = asset_loader::get_sprite(sprite.name);
 
-    for (sprite, position) 
-        in filter.filter_map(|(sprite, position)| Some((sprite.as_ref()?, position.as_ref()?))) {
-            draw_entity(chroma, sprite, position);
-    }
-     */
+        let x = position.x as u32;
+        let y = position.y as u32;
+    
+        if let Some(index) = sprite.index {
+            chroma.draw_sprite_from_sheet(sprite_data, index, x, y);
+        } else {
+            chroma.draw_sprite(sprite_data, x, y);
+        }
+    };
 
-    borrow_components!(Sprite, Position; world, |sprite, position|  {
-        draw_entity(chroma, sprite, position);
-    });
-}
-
-fn draw_entity(chroma: &mut Chroma, sprite: &Sprite, position: &Position) {
-    let sprite_data = asset_loader::get_sprite(sprite.name);
-
-    let x = position.x as u32;
-    let y = position.y as u32;
-
-    if let Some(index) = sprite.index {
-        chroma.draw_sprite_from_sheet(sprite_data, index, x, y);
-    } else {
-        chroma.draw_sprite(sprite_data, x, y);
-    }
-
+    iterate_entities!(world; Sprite, Position; expr);
 }
 
 fn input_manager(input: &mut WinitInputHelper, control_flow: &mut ControlFlow) -> Input {
@@ -428,9 +455,8 @@ fn create_player_entity(world: &mut World) {
     world.add_component_to_entity(e, Sprite{name: "sentinel", index: Some(1)});
     world.add_component_to_entity(e, Position {x: SCREEN_WIDTH as f32 / 2.0, y: SCREEN_HEIGHT as f32 / 2.0} );
     world.add_component_to_entity(e, Velocity {x: 0.0, y: 0.0} );
-    world.add_component_to_entity(e, Moveable(1.0));
+    world.add_component_to_entity(e, Moveable { speed: 1.0 });
     world.add_component_to_entity(e, Collider());
-    world.add_component_to_entity(e, Turnable());
 }
 
 fn move_entity_iterator(world: &mut World) {
@@ -446,6 +472,7 @@ fn move_entity_iterator(world: &mut World) {
 }
 
 fn turn_iterator(world: &mut World) {
+    /*
     let mut sprites = world.borrow_components_mut::<Sprite>().unwrap();
     let velocities = world.borrow_components::<Velocity>().unwrap();
     let turnables = world.borrow_components::<Turnable>().unwrap();
@@ -457,9 +484,16 @@ fn turn_iterator(world: &mut World) {
         Some(((sprite.as_mut()?, velocity.as_ref()?), turnable.as_ref()?))) {
             turn(sprite, velocity);
     }
+     */
+
+    let mut expr = |velocity: &Velocity, moveable: &Moveable, sprite: &mut Sprite| {
+        turn(sprite, velocity, moveable);
+    };
+
+    iterate_entities!(world; Velocity, Moveable | Sprite; expr);
 }
 
-fn turn(sprite: &mut Sprite, velocity: &Velocity) {
+fn turn(sprite: &mut Sprite, velocity: &Velocity, moveable: &Moveable) {
     if velocity.y.abs() > 0.1 {
         if velocity.y > 0.0 {
             sprite.index = Some(0);
@@ -561,7 +595,7 @@ fn set_entity_velocity_iterator(world: &mut World, input: &Input) {
 
     for (velocity, moveable) 
         in filter.filter_map(|(velocity, moveable)| Some((velocity.as_mut()?, moveable.as_ref()?))) {
-        set_entity_velocity(velocity, moveable.0, input);
+        set_entity_velocity(velocity, moveable.speed, input);
     }
 }
 
