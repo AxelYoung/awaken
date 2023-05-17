@@ -1,7 +1,6 @@
-use std::{dbg, println, cell::{RefCell, RefMut, Ref}, any::Any, iter::Flatten};
+#![allow(non_snake_case)]
 
-use itertools::{Itertools, multizip};
-
+use harmony::*;
 use chroma::Chroma;
 use rand::Rng;
 use winit::{event_loop::{EventLoop, ControlFlow}, 
@@ -9,6 +8,7 @@ use winit::{event_loop::{EventLoop, ControlFlow},
             event::VirtualKeyCode};
 
 use winit_input_helper::WinitInputHelper;
+use itertools::multizip;
 
 // In milliseconds
 const TICK_DURATION: u16 = 15;
@@ -29,192 +29,6 @@ const MAP: [[u8;16];14] = [
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 ];
-
-struct World {
-    entities_count: usize,
-    component_vecs: Vec<Box<dyn ComponentVec>>
-}
-
-macro_rules! iterate_entities {
-
-    // This matches any number of immutable
-    ($world:expr,  
-        [$($comps:ident),*],
-        $logic:expr) => {{
-
-        $(
-            let comp_recur = $world.borrow_components::<$comps>().unwrap();
-            let $comps = comp_recur.iter();
-        )*
-
-        let iter = multizip(($($comps),*));
-        
-        let iter = iter.filter_map(|($($comps),*)| Some((($($comps.as_ref()?),*))));
-
-        for ($($comps),*) in iter {
-            $logic($($comps),*);
-        }
-    }};
-
-    // This matches any number of immutable and mutable components
-    ($world:expr, 
-        ($comp_mut:ident, $($comps_mut:ident),*), 
-        $logic:expr) => {{
-
-        let mut comp_mut = $world.borrow_components_mut::<$comp_mut>().unwrap();
-        let comp_iter = comp_mut.iter_mut();
-
-        $(
-            let mut comp_mut_recur = $world.borrow_components_mut::<$comps_mut>().unwrap();
-            let $comps_mut = comp_mut_recur.iter_mut();
-        )*
-
-        let iter = multizip((comp_iter, $($comps_mut),*));
-
-        let iter = iter.filter_map(|(comp_iter, $($comps_mut),*)| Some(((comp_iter.as_mut()?, $($comps_mut.as_mut()?),*))));
-
-        for (comp, $($comps_mut),*) in iter {
-            $logic(comp, $($comps_mut),*);
-        }
-    }};
-    
-    // This matches any number of immutable and mutable components
-    ($world:expr, 
-        [$($comps:ident),*],
-        ($($comps_mut:ident),*), 
-        $logic:expr) => {{
-
-        $(
-            let comp_recur = $world.borrow_components::<$comps>().unwrap();
-            let $comps = comp_recur.iter();
-        )*
-
-        $(
-            let mut comp_mut_recur = $world.borrow_components_mut::<$comps_mut>().unwrap();
-            let $comps_mut = comp_mut_recur.iter_mut();
-        )*
-
-        let iter = multizip(($($comps),*, $($comps_mut),*));
-
-        let iter = iter.filter_map(|($($comps),*, $($comps_mut),*)| Some((($($comps.as_ref()?),*, $($comps_mut.as_mut()?),*))));
-
-        for ($($comps),*, $($comps_mut),*) in iter {
-            $logic($($comps),*, $($comps_mut),*);
-        }
-    }};
-
-    
-}
-
-
-impl World {
-    fn new() -> Self {
-        Self {
-            entities_count: 0,
-            component_vecs: Vec::new()
-        }
-    }
-
-    fn new_entity(&mut self) -> usize {
-        let entity_id = self.entities_count;
-        for component_vec in self.component_vecs.iter_mut() {
-            component_vec.push_none();
-        }
-        self.entities_count += 1;
-        entity_id
-    }
-
-    fn add_component_to_entity <ComponentType: 'static> (
-        &mut self, 
-        entity: usize, 
-        component: ComponentType) {
-            for component_vec in self.component_vecs.iter_mut() {
-                if let Some(component_vec) = component_vec.as_any_mut().downcast_mut::<RefCell<Vec<Option<ComponentType>>>>() {
-                    component_vec.get_mut()[entity] = Some(component);
-                    return;
-                }
-            }
-
-            let mut new_component_vec : Vec<Option<ComponentType>> =
-            Vec::with_capacity(self.entities_count);
-        
-            for _ in 0..self.entities_count {
-                new_component_vec.push(None);
-            }
-
-            new_component_vec[entity] = Some(component);
-            self.component_vecs.push(Box::new(RefCell::new(new_component_vec)));
-    }
-
-    fn remove_component_from_entity <ComponentType: 'static> (
-        &mut self,
-        entity: usize) {
-            for component_vec in self.component_vecs.iter_mut() {
-                if let Some(component_vec) = component_vec.as_any_mut().downcast_mut::<RefCell<Vec<Option<ComponentType>>>>() {
-                    component_vec.get_mut()[entity] = None;
-                    return;
-                }
-            }
-
-            let mut new_component_vec : Vec<Option<ComponentType>> =
-            Vec::with_capacity(self.entities_count);
-        
-            for _ in 0..self.entities_count {
-                new_component_vec.push(None);
-            }
-
-            self.component_vecs.push(Box::new(RefCell::new(new_component_vec)));
-        }
-
-    fn get_component_from_entity <ComponentType: 'static> (
-        &mut self,
-        entity: usize) -> Option<&mut Option<ComponentType>> {
-            for component_vec in self.component_vecs.iter_mut() {
-                if let Some(component_vec) = component_vec.as_any_mut().downcast_mut::<RefCell<Vec<Option<ComponentType>>>>() {
-                    return Some(&mut component_vec.get_mut()[entity]);
-                }
-            }
-            None
-        }
-
-    fn borrow_components <ComponentType: 'static> (&self) -> Option<Ref<Vec<Option<ComponentType>>>> {
-        for component_vec in self.component_vecs.iter() {
-            if let Some(component_vec) = component_vec.as_any().downcast_ref::<RefCell<Vec<Option<ComponentType>>>>() {
-                return Some(component_vec.borrow());
-            }
-        }
-        None
-    }
-
-    fn borrow_components_mut <ComponentType: 'static> (&self) -> Option<RefMut<Vec<Option<ComponentType>>>> {
-        for component_vec in self.component_vecs.iter() {
-            if let Some(component_vec) = component_vec.as_any().downcast_ref::<RefCell<Vec<Option<ComponentType>>>>() {
-                return Some(component_vec.borrow_mut());
-            }
-        }
-        None
-    }
-}
-
-trait ComponentVec {
-    fn as_any(&self) -> &dyn std::any::Any;
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
-    fn push_none(&mut self);
-}
-
-impl<T: 'static> ComponentVec for RefCell<Vec<Option<T>>> {
-    fn push_none(&mut self) {
-        self.get_mut().push(None);
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self as &dyn std::any::Any
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
-        self as &mut dyn std::any::Any
-    }
-}
 
 fn main() {
     run();
@@ -239,7 +53,6 @@ struct Velocity {
 }
 
 struct Collider();
-
 struct Moveable {
     speed: f32
 }
@@ -376,26 +189,24 @@ fn draw(world: &mut World, chroma: &mut Chroma){
     chroma.render();
 }
 
-
 fn draw_entity(world: &mut World, chroma: &mut Chroma) {
-    let mut expr = |sprite : &Sprite, position: &Position| {
-        let sprite_data = asset_loader::get_sprite(sprite.name);
+    iterate_entities!(world, [Sprite, Position], 
+        |sprite : &Sprite, position: &Position| {
+            let sprite_data = asset_loader::get_sprite(sprite.name);
 
-        let x = position.x as u32;
-        let y = position.y as u32;
-    
-        if let Some(index) = sprite.index {
-            chroma.draw_sprite_from_sheet(sprite_data, index, x, y);
-        } else {
-            chroma.draw_sprite(sprite_data, x, y);
+            let x = position.x as u32;
+            let y = position.y as u32;
+        
+            if let Some(index) = sprite.index {
+                chroma.draw_sprite_from_sheet(sprite_data, index, x, y);
+            } else {
+                chroma.draw_sprite(sprite_data, x, y);
+            }
         }
-    };
-
-    iterate_entities!(world, [Sprite, Position], expr);
+    );
 }
 
 fn input_manager(input: &mut WinitInputHelper, control_flow: &mut ControlFlow) -> Input {
-
     let up_pressed = input.key_held(VirtualKeyCode::Up);
     let down_pressed = input.key_held(VirtualKeyCode::Down);
     let left_pressed = input.key_held(VirtualKeyCode::Left);
@@ -471,7 +282,7 @@ fn move_entity(world: &mut World) {
 }
 
 fn turn(world: &mut World) {
-    let expr = |velocity: &Velocity, moveable: &Moveable, sprite: &mut Sprite| {
+    let expr = |velocity: &Velocity, _, sprite: &mut Sprite| {
         if velocity.y.abs() > 0.1 {
             if velocity.y > 0.0 {
                 sprite.index = Some(0);

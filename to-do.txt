@@ -1,4 +1,4 @@
-[] shorten the expression below into a single iterator
+[x] shorten the expression below into a single iterator
     // let mut sprite_components = world.borrow_component_vec::<Sprite>().unwrap();
     // let mut position_components = world.borrow_component_vec::<Position>().unwrap();
     

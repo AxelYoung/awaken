@@ -9,6 +9,7 @@ edition = "2021"
 winit = "0.28.3"
 chroma = { path = "../chroma" }
 asset_loader = { path = "../asset_loader" }
+harmony = { path = "../harmony" }
 env_logger = "0.10"
 log = "0.4"
 pollster = "0.3"

@@ -3,5 +3,6 @@
 members = [
     "asset_loader",
     "chroma",
+    "harmony",
     "game"
 ]
