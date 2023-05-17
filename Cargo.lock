@@ -139,8 +139,15 @@ dependencies = [
 name = "asset_loader"
 version = "0.1.0"
 dependencies = [
+ "console_error_panic_hook",
+ "console_log",
+ "getrandom",
  "image",
  "include_dir",
+ "rodio",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
@@ -336,10 +343,17 @@ dependencies = [
  "anyhow",
  "bytemuck",
  "cfg-if",
+ "console_error_panic_hook",
+ "console_log",
  "env_logger",
+ "getrandom",
  "log",
  "pollster 0.2.5",
+ "rodio",
  "ultraviolet",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
  "wgpu",
  "winit",
 ]
@@ -761,7 +775,14 @@ dependencies = [
 name = "harmony"
 version = "0.1.0"
 dependencies = [
+ "console_error_panic_hook",
+ "console_log",
+ "getrandom",
  "itertools",
+ "rodio",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]

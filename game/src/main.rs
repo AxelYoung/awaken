@@ -10,6 +10,9 @@ use winit::{event_loop::{EventLoop, ControlFlow},
 use winit_input_helper::WinitInputHelper;
 use itertools::multizip;
 
+#[cfg(target_arch="wasm32")]
+use wasm_bindgen::prelude::*;
+
 // In milliseconds
 const TICK_DURATION: u16 = 15;
 
@@ -34,7 +37,38 @@ fn main() {
     run();
 }
 
-#[derive(Debug)]
+#[derive(PartialEq, Clone, Copy, Debug)]
+struct Vec2 {
+    x: f32,
+    y: f32
+}
+
+impl Vec2 {
+    pub fn new(x: f32, y: f32) -> Self { Self { x, y } }
+}
+
+impl std::ops::Mul<f32> for Vec2 {
+    type Output = Vec2;
+    
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self {
+            x: self.x * rhs,
+            y: self.y * rhs
+        }
+    }
+}
+
+impl std::ops::Add<Vec2> for Vec2 {
+    type Output = Vec2;
+    
+    fn add(self, rhs: Vec2) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y
+        }
+    }
+}
+
 struct Sprite<'a> {
     name: &'a str,
     index: Option<u32>
@@ -42,19 +76,49 @@ struct Sprite<'a> {
 
 #[derive(PartialEq, Debug)]
 struct Position {
-    x: f32,
-    y: f32
+   value: Vec2
 }
 
-#[derive(Debug)]
+impl Position {
+    pub fn new(x: f32, y: f32) -> Self { Self { value: Vec2::new(x, y) } }
+}
+
+impl std::ops::Deref for Position {
+    type Target = Vec2;
+    fn deref(&self) -> &Vec2 { &self.value }
+}
+
+impl std::ops::DerefMut for Position {
+    fn deref_mut(&mut self) -> &mut Vec2 { &mut self.value }
+}
+
 struct Velocity {
-    x: f32,
-    y: f32
+    value: Vec2
+}
+
+impl Velocity {
+    pub fn new(x: f32, y: f32) -> Self { Self { value: Vec2::new(x, y) } }
+}
+
+impl std::ops::Deref for Velocity {
+    type Target = Vec2;
+    fn deref(&self) -> &Vec2 { &self.value }
+}
+
+impl std::ops::DerefMut for Velocity {
+    fn deref_mut(&mut self) -> &mut Vec2 { &mut self.value }
 }
 
 struct Collider{}
 struct Moveable {
-    speed: f32
+    speed: f32,
+    active: bool,
+    dir: Vec2
+}
+
+struct Bounds {
+    right: f32,
+    bottom: f32,
 }
 
 const SCREEN_WIDTH: u32 = 256;
@@ -95,8 +159,8 @@ pub fn run() {
         // Winit prevents sizing with CSS, so we have to set
         // the size manually when on web.
         use winit::dpi::PhysicalSize;
-        window.set_inner_size(PhysicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT));
-
+        window.set_inner_size(PhysicalSize::new(SCREEN_SIZE.x, SCREEN_SIZE.y));
+        
         use winit::platform::web::WindowExtWebSys;
         web_sys::window()
             .and_then(|win| win.document())
@@ -124,22 +188,22 @@ pub fn run() {
     let e = world.new_entity();
     
     world.add_component_to_entity(e, Sprite{ name: "stone", index: None });
-    world.add_component_to_entity(e, Position { x: 20.0, y: 50.0} );
-    world.add_component_to_entity(e, Velocity { x: 4.5, y: 0.0} );
+    world.add_component_to_entity(e, Position::new(20.0, 50.0));
+    world.add_component_to_entity(e, Velocity::new(4.5, 0.0));
     world.add_component_to_entity(e, Collider{});
 
     let e = world.new_entity();
     
     world.add_component_to_entity(e, Sprite{ name: "stone", index: None });
-    world.add_component_to_entity(e, Position { x: 200.0, y: 50.0} );
-    world.add_component_to_entity(e, Velocity { x: -4.5, y: 0.0} );
+    world.add_component_to_entity(e, Position::new(200.0, 50.0));
+    world.add_component_to_entity(e, Velocity::new(-4.5, 0.0));
     world.add_component_to_entity(e, Collider{});
 
     let e = world.new_entity();
     
     world.add_component_to_entity(e, Sprite{ name: "stone", index: None });
-    world.add_component_to_entity(e, Position { x: 100.0, y: 80.0} );
-    world.add_component_to_entity(e, Velocity { x: 10.5, y: 2.0} );
+    world.add_component_to_entity(e, Position::new(100.0, 80.0));
+    world.add_component_to_entity(e, Velocity::new(10.5, 2.0));
     world.add_component_to_entity(e, Collider{});
 
     let mut input = WinitInputHelper::new();
@@ -161,8 +225,9 @@ pub fn run() {
 }
 
 fn update(world: &mut World, input: &Input) {
-    set_entity_velocity(world, input);
+    set_moveable_dir(world, input);
     turn(world);
+    //check_moveable(world);
 }
 
 fn tick_manager(world: &mut World, tick_time: &mut f64, last_tick: &mut f64) {
@@ -245,10 +310,7 @@ fn create_map_entities(world: &mut World) {
                 index: None
             };
 
-            let position = Position { 
-                x: x as f32 * 16.0,
-                y: y as f32 * 16.0
-            };
+            let position = Position::new(x as f32 * 16.0, y as f32 * 16.0);
             let e = world.new_entity();
             world.add_component_to_entity(e, sprite);
             world.add_component_to_entity(e, position);
@@ -263,9 +325,9 @@ fn create_player_entity(world: &mut World) {
     let e = world.new_entity();
 
     world.add_component_to_entity(e, Sprite{name: "sentinel", index: Some(1)});
-    world.add_component_to_entity(e, Position {x: SCREEN_WIDTH as f32 / 2.0, y: SCREEN_HEIGHT as f32 / 2.0} );
-    world.add_component_to_entity(e, Velocity {x: 0.0, y: 0.0} );
-    world.add_component_to_entity(e, Moveable { speed: 1.0 });
+    world.add_component_to_entity(e, Position::new(SCREEN_WIDTH as f32 / 2.0, SCREEN_HEIGHT as f32 / 2.0));
+    world.add_component_to_entity(e, Velocity::new(0.0, 0.0));
+    world.add_component_to_entity(e, Moveable {speed: 1.0, active: true, dir: Vec2::new(0.0, 0.0)});
     world.add_component_to_entity(e, Collider{});
 }
 
@@ -319,7 +381,7 @@ fn check_collisions(world: &mut World) {
             iterate_entities!(world, [Position, Collider], 
                 |position_b: &Position, _| {
                     if position_a != position_b {
-                        if check_collision(position_a, position_b) {
+                        if check_collision(position_a.value, Bounds{right: 16.0, bottom: 16.0}, position_b.value, Bounds{right: 16.0, bottom: 16.0}) {
                             collided_velocities.push((velocity.x / 2.0, velocity.y / 2.0));
                             velocity.x = 0.0;
                             velocity.y = 0.0;
@@ -333,17 +395,17 @@ fn check_collisions(world: &mut World) {
 
     for (id, velocity) in collided.iter().zip(collided_velocities) {
         if let Some(Some(position)) = world.get_component_from_entity::<Position>(*id) {
-            position.x -= velocity.0;
-            position.y -= velocity.1;
+            position.x -= velocity.0 * 2.0;
+            position.y -= velocity.1 * 2.0;
         }
     }
 }
 
-fn check_collision(pos_a: &Position, pos_b: &Position) -> bool {
-    let right_a = pos_a.x + 16.0;
-    let bot_a = pos_a.y + 16.0;
-    let right_b = pos_b.x + 16.0;
-    let bot_b = pos_b.y + 16.0;
+fn check_collision(pos_a: Vec2, bounds_a: Bounds, pos_b: Vec2, bounds_b: Bounds) -> bool {
+    let right_a = pos_a.x + bounds_a.right;
+    let bot_a = pos_a.y + bounds_a.bottom;
+    let right_b = pos_b.x + bounds_b.right;
+    let bot_b = pos_b.y + bounds_b.bottom;
 
     if pos_a.x < right_b && right_a > pos_b.x && pos_a.y < bot_b && bot_a > pos_b.y {
         return true;
@@ -352,9 +414,9 @@ fn check_collision(pos_a: &Position, pos_b: &Position) -> bool {
     false
 }
 
-fn set_entity_velocity(world: &mut World, input: &Input) {
-    iterate_entities!(world, [Moveable], (Velocity), 
-        |moveable: &Moveable, velocity: &mut Velocity| {
+fn set_moveable_dir(world: &mut World, input: &Input) {
+    iterate_entities!(world, (Moveable, Velocity),
+        |moveable: &mut Moveable, velocity: &mut Velocity| {
             let dir_x : f32 = if input.right_pressed { 1.0 } else if input.left_pressed { -1.0 } else { 0.0 };
             let dir_y : f32 = if input.up_pressed { -1.0 } else if input.down_pressed { 1.0 } else { 0.0 };
         
@@ -362,11 +424,30 @@ fn set_entity_velocity(world: &mut World, input: &Input) {
         
             let normalized_x = dir_x / magnitude;
             let normalized_y = dir_y / magnitude;
-        
+            
+            moveable.dir.x = normalized_x;
+            moveable.dir.y = normalized_y;
+
             if magnitude != 0.0 {
                 velocity.x = normalized_x * moveable.speed;
                 velocity.y = normalized_y * moveable.speed;
             }
+        }
+    );
+}
+
+fn check_moveable(world: &mut World) {
+    iterate_entities_with_id!(world, [Position], (Moveable), 
+        |moveable_id, moveable_pos: &Position, moveable: &mut Moveable| {
+            iterate_entities_with_id!(world, [Collider, Position], 
+                |id, _, pos: &Position| {
+                    if moveable_id != id {
+                        if check_collision((moveable_pos.value + Vec2::new(8.0, 8.0)) + (moveable.dir * 10.0), Bounds { right: 0.0, bottom: 0.0 }, pos.value, Bounds { right: 16.0, bottom: 16.0 }) {
+                            dbg!(pos);
+                        }
+                    } 
+                }
+            );
         }
     );
 }
