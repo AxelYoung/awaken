@@ -38,8 +38,8 @@ struct World {
 macro_rules! iterate_entities {
 
     // This matches any number of immutable
-    ($world:expr;  
-        $($comps:ident),*;
+    ($world:expr,  
+        [$($comps:ident),*],
         $logic:expr) => {{
 
         $(
@@ -56,11 +56,32 @@ macro_rules! iterate_entities {
         }
     }};
 
+    // This matches any number of immutable and mutable components
+    ($world:expr, 
+        ($comp_mut:ident, $($comps_mut:ident),*), 
+        $logic:expr) => {{
+
+        let mut comp_mut = $world.borrow_components_mut::<$comp_mut>().unwrap();
+        let comp_iter = comp_mut.iter_mut();
+
+        $(
+            let mut comp_mut_recur = $world.borrow_components_mut::<$comps_mut>().unwrap();
+            let $comps_mut = comp_mut_recur.iter_mut();
+        )*
+
+        let iter = multizip((comp_iter, $($comps_mut),*));
+
+        let iter = iter.filter_map(|(comp_iter, $($comps_mut),*)| Some(((comp_iter.as_mut()?, $($comps_mut.as_mut()?),*))));
+
+        for (comp, $($comps_mut),*) in iter {
+            $logic(comp, $($comps_mut),*);
+        }
+    }};
     
     // This matches any number of immutable and mutable components
-    ($world:expr; 
-        $($comps:ident),* |
-        $($comps_mut:ident),*; 
+    ($world:expr, 
+        [$($comps:ident),*],
+        ($($comps_mut:ident),*), 
         $logic:expr) => {{
 
         $(
@@ -81,30 +102,8 @@ macro_rules! iterate_entities {
             $logic($($comps),*, $($comps_mut),*);
         }
     }};
-    /* 
-        ($world:expr; 
-        $comp:ident, $($comps:ident),* |
-        $($comps_mut:ident),*; 
-        $logic:expr) => {{
 
-        let comp = $world.borrow_components::<$comp>().unwrap();
-        let iter = comp.iter().filter_map(|f| Some(f.as_ref()?));
-
-        $(
-            let comp = $world.borrow_components::<$comps>().unwrap();
-            let iter = iter.zip(comp.iter().filter_map(|f| Some(f.as_ref()?)));
-        )*
-
-        $(
-            let mut comp_mut = $world.borrow_components_mut::<$comps_mut>().unwrap();
-            let iter = iter.zip(comp_mut.iter_mut().filter_map(|f| Some(f.as_mut()?)));
-        )*
-
-        for (($comp, $($comps),*,), $($comps_mut),*) in iter {
-            $logic($comp, $($comps),*, $($comps_mut),*);
-        }
-    }};
-     */
+    
 }
 
 
@@ -349,8 +348,8 @@ pub fn run() {
 }
 
 fn update(world: &mut World, input: &Input) {
-    set_entity_velocity_iterator(world, input);
-    turn_iterator(world);
+    set_entity_velocity(world, input);
+    turn(world);
 }
 
 fn tick_manager(world: &mut World, tick_time: &mut f64, last_tick: &mut f64) {
@@ -365,7 +364,7 @@ fn tick_manager(world: &mut World, tick_time: &mut f64, last_tick: &mut f64) {
 
 fn fixed_update(world: &mut World) {
     check_collision_iter(world);
-    move_entity_iterator(world);
+    move_entity(world);
     velocity_drag_iterator(world);
 }
 
@@ -392,7 +391,7 @@ fn draw_entity(world: &mut World, chroma: &mut Chroma) {
         }
     };
 
-    iterate_entities!(world; Sprite, Position; expr);
+    iterate_entities!(world, [Sprite, Position], expr);
 }
 
 fn input_manager(input: &mut WinitInputHelper, control_flow: &mut ControlFlow) -> Input {
@@ -459,76 +458,48 @@ fn create_player_entity(world: &mut World) {
     world.add_component_to_entity(e, Collider());
 }
 
-fn move_entity_iterator(world: &mut World) {
-    let mut positions = world.borrow_components_mut::<Position>().unwrap();
-    let velocities = world.borrow_components::<Velocity>().unwrap();
-
-    let filter = positions.iter_mut().zip(velocities.iter());
-
-    for (position, velocity) 
-        in filter.filter_map(|(position, velocity)| Some((position.as_mut()?, velocity.as_ref()?))) {
-            move_entity(position, velocity);
-    }
-}
-
-fn turn_iterator(world: &mut World) {
-    /*
-    let mut sprites = world.borrow_components_mut::<Sprite>().unwrap();
-    let velocities = world.borrow_components::<Velocity>().unwrap();
-    let turnables = world.borrow_components::<Turnable>().unwrap();
-
-    let filter = sprites.iter_mut().zip(velocities.iter()).zip(turnables.iter());
-
-    for ((sprite, velocity), _)
-        in filter.filter_map(|((sprite, velocity), turnable)| 
-        Some(((sprite.as_mut()?, velocity.as_ref()?), turnable.as_ref()?))) {
-            turn(sprite, velocity);
-    }
-     */
-
-    let mut expr = |velocity: &Velocity, moveable: &Moveable, sprite: &mut Sprite| {
-        turn(sprite, velocity, moveable);
+fn move_entity(world: &mut World) {
+    let expr = |velocity: &Velocity, position: &mut Position| {
+        position.x += velocity.x;
+        position.y += velocity.y;
+    
+        position.x = position.x.clamp(0.0, SCREEN_WIDTH as f32 - 16.0);
+        position.y = position.y.clamp(0.0, SCREEN_HEIGHT as f32 - 16.0);
     };
 
-    iterate_entities!(world; Velocity, Moveable | Sprite; expr);
+    iterate_entities!(world, [Velocity], (Position), expr);
 }
 
-fn turn(sprite: &mut Sprite, velocity: &Velocity, moveable: &Moveable) {
-    if velocity.y.abs() > 0.1 {
-        if velocity.y > 0.0 {
-            sprite.index = Some(0);
-        } else if velocity.y < 0.0 {
-            sprite.index = Some(1);
+fn turn(world: &mut World) {
+    let expr = |velocity: &Velocity, moveable: &Moveable, sprite: &mut Sprite| {
+        if velocity.y.abs() > 0.1 {
+            if velocity.y > 0.0 {
+                sprite.index = Some(0);
+            } else if velocity.y < 0.0 {
+                sprite.index = Some(1);
+            }
+        } else if velocity.x.abs() > 0.1 {
+            if velocity.x > 0.0 {
+                sprite.index = Some(2);
+            } else if velocity.x < 0.0 {
+                sprite.index = Some(3);
+            }
         }
-    } else if velocity.x.abs() > 0.1 {
-        if velocity.x > 0.0 {
-            sprite.index = Some(2);
-        } else if velocity.x < 0.0 {
-            sprite.index = Some(3);
-        }
-    }
+    };
+
+    iterate_entities!(world, [Velocity, Moveable], (Sprite), expr);
 }
 
-fn move_entity(position: &mut Position, velocity: &Velocity) {
-    position.x += velocity.x;
-    position.y += velocity.y;
-
-    position.x = position.x.clamp(0.0, SCREEN_WIDTH as f32 - 16.0);
-    position.y = position.y.clamp(0.0, SCREEN_HEIGHT as f32 - 16.0);
-}
 
 fn velocity_drag_iterator(world: &mut World) {
-    let mut velocities = world.borrow_components_mut::<Velocity>().unwrap();
+    let expr = |velocity: &mut Velocity| {
+        velocity.x -= velocity.x * 0.05;
+        velocity.y -= velocity.y * 0.05;
+    };
 
-    for velocity in velocities.iter_mut().filter_map(|velocity| Some(velocity.as_mut()?)) {
-        velocity_drag(velocity);
-    }
+    iterate_entities!(world, (Velocity,), expr);
 }
 
-fn velocity_drag(velocity: &mut Velocity) {
-    velocity.x -= velocity.x * 0.05;
-    velocity.y -= velocity.y * 0.05;
-}
 
 fn check_collision_iter(world: &mut World) {
 
@@ -587,29 +558,21 @@ fn check_collision(pos_a: &Position, pos_b: &Position) -> bool {
     false
 }
 
-fn set_entity_velocity_iterator(world: &mut World, input: &Input) {
-    let mut velocities = world.borrow_components_mut::<Velocity>().unwrap();
-    let moveables = world.borrow_components::<Moveable>().unwrap();
+fn set_entity_velocity(world: &mut World, input: &Input) {
+    let expr = |moveable: &Moveable, velocity: &mut Velocity| {
+        let dir_x : f32 = if input.right_pressed { 1.0 } else if input.left_pressed { -1.0 } else { 0.0 };
+        let dir_y : f32 = if input.up_pressed { -1.0 } else if input.down_pressed { 1.0 } else { 0.0 };
+    
+        let magnitude = dir_x.abs() + dir_y.abs();
+    
+        let normalized_x = dir_x / magnitude;
+        let normalized_y = dir_y / magnitude;
+    
+        if magnitude != 0.0 {
+            velocity.x = normalized_x * moveable.speed;
+            velocity.y = normalized_y * moveable.speed;
+        }
+    };
 
-    let filter = velocities.iter_mut().zip(moveables.iter());
-
-    for (velocity, moveable) 
-        in filter.filter_map(|(velocity, moveable)| Some((velocity.as_mut()?, moveable.as_ref()?))) {
-        set_entity_velocity(velocity, moveable.speed, input);
-    }
-}
-
-fn set_entity_velocity(velocity: &mut Velocity, speed: f32, input: &Input) {
-    let dir_x : f32 = if input.right_pressed { 1.0 } else if input.left_pressed { -1.0 } else { 0.0 };
-    let dir_y : f32 = if input.up_pressed { -1.0 } else if input.down_pressed { 1.0 } else { 0.0 };
-
-    let magnitude = dir_x.abs() + dir_y.abs();
-
-    let normalized_x = dir_x / magnitude;
-    let normalized_y = dir_y / magnitude;
-
-    if magnitude != 0.0 {
-        velocity.x = normalized_x * speed;
-        velocity.y = normalized_y * speed;
-    }
+    iterate_entities!(world, [Moveable], (Velocity), expr);
 }
