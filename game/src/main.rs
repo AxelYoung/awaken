@@ -249,13 +249,19 @@ pub fn run() {
 
     world.add_component_to_entity(e, Position::new(80.0, 80.0));
     world.add_component_to_entity(e, Sprite{name: "torch", index: None, flip_x: false});
-    world.add_component_to_entity(e, Light{strength: 30.0, color: Color::new(181, 98, 34)});
+    world.add_component_to_entity(e, Light{strength: 30.0, color: Color::new(100, 60, 30)});
 
     let e = world.new_entity();
 
     world.add_component_to_entity(e, Position::new(40.0, 40.0));
     world.add_component_to_entity(e, Sprite{name: "torch", index: None, flip_x: false});
     world.add_component_to_entity(e, Light{strength: 12.0, color: Color::new(100, 200, 100)});
+
+    let e = world.new_entity();
+
+    world.add_component_to_entity(e, Position::new(100.0, 35.0));
+    world.add_component_to_entity(e, Sprite{name: "torch", index: None, flip_x: false});
+    world.add_component_to_entity(e, Light{strength: 16.0, color: Color::new(50, 50, 50)});
 
     create_player_entity(&mut world);
 
@@ -332,7 +338,6 @@ fn draw_lightmap(world: &mut World, chroma: &mut Chroma) {
     
     let mut lights : Vec<(f32, Color, Vec2)> = Vec::new();
     
-    
     iterate_entities!(world, [Light, Position], 
         |light: &Light, position: &Position| {
             lights.push((light.strength, light.color, position.value));
@@ -346,8 +351,9 @@ fn draw_lightmap(world: &mut World, chroma: &mut Chroma) {
             let mut b = -DARKNESS as f32;
 
             for (light, color, position) in lights.iter() {
-                let dist = position.dist(Vec2::new(x as f32 - 3.0, y as f32 - 3.0));
-                let min_dist = *light + rand::thread_rng().gen_range(-1.0..=2.0);
+                let mut dist = position.dist(Vec2::new(x as f32 - 3.0, y as f32 - 3.0));
+                let min_dist = *light + rand::thread_rng().gen_range(-0.5..=0.5);
+                dist = (dist / 3.0).floor() * 3.0;
                 if dist <= min_dist { 
                     let falloff = 1.0 - (dist / min_dist);
                     r = r + (color.r as f32 * falloff);
