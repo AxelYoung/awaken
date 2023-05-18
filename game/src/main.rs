@@ -451,7 +451,7 @@ fn create_player_entity(world: &mut World) {
         time: 0.0,
         playing: false
     });
-    world.add_component_to_entity(e, Light{strength: 20.0, color: Color::new(60, 60, 100)});
+    //world.add_component_to_entity(e, Light{strength: 20.0, color: Color::new(60, 60, 100)});
 }
 
 fn move_entity(world: &mut World) {

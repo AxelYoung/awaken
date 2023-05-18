@@ -1,5 +1,6 @@
 [] more advanced physics / collisions
 [] dithering for lights 
+[] more performant lighting
 [] raycasting system
 [] scene transitions / moveable camera
 [] trail renderer
@@ -13,3 +14,5 @@
 [] music
 [] sounds
 [] animations that don't use Sprite (animating a float or vec)
+
+first stage has a single lever that you activate to continue
