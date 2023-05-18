@@ -13,6 +13,8 @@ use itertools::multizip;
 #[cfg(target_arch="wasm32")]
 use wasm_bindgen::prelude::*;
 
+const SPRITE_SIZE: u16 = 8;
+
 // In milliseconds
 const TICK_DURATION: u16 = 15;
 
@@ -45,6 +47,11 @@ struct Vec2 {
 
 impl Vec2 {
     pub fn new(x: f32, y: f32) -> Self { Self { x, y } }
+    pub fn dist(&self, comp: Vec2) -> f32 {
+        let dx = comp.x - self.x;
+        let dy = comp.y - self.y;
+        (dx * dx + dy * dy).sqrt()
+    }
 }
 
 impl std::ops::Mul<f32> for Vec2 {
@@ -71,7 +78,8 @@ impl std::ops::Add<Vec2> for Vec2 {
 
 struct Sprite<'a> {
     name: &'a str,
-    index: Option<u32>
+    index: Option<u32>,
+    flip_x: bool
 }
 
 #[derive(PartialEq, Debug)]
@@ -121,17 +129,71 @@ struct Bounds {
     bottom: f32,
 }
 
-const SCREEN_WIDTH: u32 = 256;
-const SCREEN_HEIGHT: u32 = 224;
+struct Animator {
+    animation: Animation,
+    frame_index: usize,
+    time: f64,
+    playing: bool,
+}
 
-const SCREEN_SCALE: u32 = 4;
+impl Animator {
+    pub fn current_frame(&self) -> &AnimationFrame {
+        &self.animation.frames[self.frame_index]
+    }
+
+    pub fn step(&mut self) {
+        self.frame_index += 1;
+        if self.frame_index == self.animation.frames.len() {
+            self.frame_index = 0;
+        }
+    }
+}
+
+struct Animation {
+    frames: Vec<AnimationFrame>,
+    r#loop: bool
+}
+
+struct AnimationFrame {
+    sprite: u32,
+    length: f64
+}
+
+struct Light {
+    strength: f32,
+    color: Color
+}
+
+#[derive(Clone, Copy)]
+struct Color {
+    r: u8,
+    g: u8,
+    b: u8
+}
+
+impl Color {
+    pub fn new(r: u8, g: u8, b: u8) -> Self { Self { r, g, b } }
+}
+
+impl AnimationFrame {
+    pub fn new (sprite: u32, length: f64) -> Self {
+        Self {
+            sprite,
+            length
+        }
+    }
+}
+
+const SCREEN_WIDTH: u32 = 128;
+const SCREEN_HEIGHT: u32 = 112;
+
+const SCREEN_SCALE: u32 = 8;
 
 const WINDOW_WIDTH: u32 = SCREEN_WIDTH * SCREEN_SCALE;
 const WINDOW_HEIGHT: u32 = SCREEN_HEIGHT * SCREEN_SCALE;
 
 #[cfg_attr(target_arch="wasm32", wasm_bindgen(start))]
 pub fn run() {
-
     // CREATE EVENT LOOP
 
     cfg_if::cfg_if! {
@@ -183,60 +245,52 @@ pub fn run() {
 
     create_map_entities(&mut world);
 
+    let e = world.new_entity();
+
+    world.add_component_to_entity(e, Position::new(80.0, 80.0));
+    world.add_component_to_entity(e, Sprite{name: "torch", index: None, flip_x: false});
+    world.add_component_to_entity(e, Light{strength: 30.0, color: Color::new(181, 98, 34)});
+
+    let e = world.new_entity();
+
+    world.add_component_to_entity(e, Position::new(40.0, 40.0));
+    world.add_component_to_entity(e, Sprite{name: "torch", index: None, flip_x: false});
+    world.add_component_to_entity(e, Light{strength: 12.0, color: Color::new(100, 200, 100)});
+
     create_player_entity(&mut world);
-
-    let e = world.new_entity();
-    
-    world.add_component_to_entity(e, Sprite{ name: "stone", index: None });
-    world.add_component_to_entity(e, Position::new(20.0, 50.0));
-    world.add_component_to_entity(e, Velocity::new(4.5, 0.0));
-    world.add_component_to_entity(e, Collider{});
-
-    let e = world.new_entity();
-    
-    world.add_component_to_entity(e, Sprite{ name: "stone", index: None });
-    world.add_component_to_entity(e, Position::new(200.0, 50.0));
-    world.add_component_to_entity(e, Velocity::new(-4.5, 0.0));
-    world.add_component_to_entity(e, Collider{});
-
-    let e = world.new_entity();
-    
-    world.add_component_to_entity(e, Sprite{ name: "stone", index: None });
-    world.add_component_to_entity(e, Position::new(100.0, 80.0));
-    world.add_component_to_entity(e, Velocity::new(10.5, 2.0));
-    world.add_component_to_entity(e, Collider{});
 
     let mut input = WinitInputHelper::new();
 
     // EVENT LOOP
     
     let mut last_tick = instant::now();
-    let mut tick_time = 0.0;
+    let mut tick_accumultor = 0.0;
 
     event_loop.run(move |event, _, control_flow| {
         if input.update(&event) {
-            update(&mut world, &input_manager(&mut input, control_flow));
+            let delta_time = instant::now() - last_tick;
+            last_tick = instant::now();
 
-            tick_manager(&mut world, &mut tick_time, &mut last_tick);
+            update(&mut world, &input_manager(&mut input, control_flow), &delta_time);
+
+            fixed_tick_manager(&mut world, &delta_time, &mut tick_accumultor);
         
             draw(&mut world, &mut chroma);
         }
     });
 }
 
-fn update(world: &mut World, input: &Input) {
+fn update(world: &mut World, input: &Input, delta_time: &f64) {
+    animate(world, delta_time);
     set_moveable_dir(world, input);
-    turn(world);
-    //check_moveable(world);
 }
 
-fn tick_manager(world: &mut World, tick_time: &mut f64, last_tick: &mut f64) {
-    *tick_time += instant::now() - *last_tick;
-    *last_tick = instant::now();
+fn fixed_tick_manager(world: &mut World, delta_time: &f64, tick_accumulator: &mut f64) {
+    *tick_accumulator += delta_time;
 
-    while *tick_time >= TICK_DURATION as f64 {
+    while *tick_accumulator >= TICK_DURATION as f64 {
         fixed_update(world);
-        *tick_time -= TICK_DURATION as f64;
+        *tick_accumulator -= TICK_DURATION as f64;
     }
 }
 
@@ -250,6 +304,7 @@ fn draw(world: &mut World, chroma: &mut Chroma){
     chroma.clear();
         
     draw_entity(world, chroma);
+    draw_lightmap(world, chroma);
 
     chroma.render();
 }
@@ -263,12 +318,51 @@ fn draw_entity(world: &mut World, chroma: &mut Chroma) {
             let y = position.y as u32;
         
             if let Some(index) = sprite.index {
-                chroma.draw_sprite_from_sheet(sprite_data, index, x, y);
+                chroma.draw_sprite_from_sheet(sprite_data, index, x, y, sprite.flip_x);
             } else {
-                chroma.draw_sprite(sprite_data, x, y);
+                chroma.draw_sprite(sprite_data, x, y, sprite.flip_x);
             }
         }
     );
+}
+
+const DARKNESS: i16 = 100;
+
+fn draw_lightmap(world: &mut World, chroma: &mut Chroma) {
+    
+    let mut lights : Vec<(f32, Color, Vec2)> = Vec::new();
+    
+    
+    iterate_entities!(world, [Light, Position], 
+        |light: &Light, position: &Position| {
+            lights.push((light.strength, light.color, position.value));
+        }
+    );
+    
+    for x in 0..SCREEN_WIDTH {
+        for y in 0..SCREEN_HEIGHT {
+            let mut r = -DARKNESS as f32;
+            let mut g = -DARKNESS as f32;
+            let mut b = -DARKNESS as f32;
+
+            for (light, color, position) in lights.iter() {
+                let dist = position.dist(Vec2::new(x as f32 - 3.0, y as f32 - 3.0));
+                let min_dist = *light + rand::thread_rng().gen_range(-1.0..=2.0);
+                if dist <= min_dist { 
+                    let falloff = 1.0 - (dist / min_dist);
+                    r = r + (color.r as f32 * falloff);
+                    g = g + (color.g as f32 * falloff);
+                    b = b + (color.b as f32 * falloff);
+                }
+            }
+
+            let mut pixel = chroma.get_pixel(x, y);
+            pixel[0] = (pixel[0] as f32 + r) as u8;
+            pixel[1] = (pixel[1] as f32 + g) as u8;
+            pixel[2] = (pixel[2] as f32 + b) as u8;
+            chroma.draw_pixel(&pixel, x, y);
+        }
+    }
 }
 
 fn input_manager(input: &mut WinitInputHelper, control_flow: &mut ControlFlow) -> Input {
@@ -289,6 +383,21 @@ fn input_manager(input: &mut WinitInputHelper, control_flow: &mut ControlFlow) -
     }
 }
 
+fn animate(world: &mut World, delta_time: &f64) {
+    iterate_entities!(world, (Animator, Sprite), 
+        |animator: &mut Animator, sprite: &mut Sprite| {
+            if animator.playing {
+                animator.time += delta_time;
+                if animator.time > animator.current_frame().length {
+                    animator.time = 0.0;
+                    animator.step();
+                    sprite.index = Some(animator.current_frame().sprite);
+                }
+            }
+        }
+    );
+}
+
 struct Input {
     up_pressed: bool,
     down_pressed: bool,
@@ -301,16 +410,14 @@ fn create_map_entities(world: &mut World) {
         for y in 0..14 {
             let sprite = Sprite {
                 name: match MAP[y][x] {
-                    0 => {"stone"},
-                    _ => match rand::thread_rng().gen_bool(0.5) {
-                        true => {"dirt"},
-                        false => {"grass"}
-                    }
+                    0 => "stone",
+                    _ => "cobble"
                 },
-                index: None
+                index: None,
+                flip_x: false
             };
 
-            let position = Position::new(x as f32 * 16.0, y as f32 * 16.0);
+            let position = Position::new(x as f32 * SPRITE_SIZE as f32, y as f32 * SPRITE_SIZE as f32);
             let e = world.new_entity();
             world.add_component_to_entity(e, sprite);
             world.add_component_to_entity(e, position);
@@ -324,11 +431,21 @@ fn create_map_entities(world: &mut World) {
 fn create_player_entity(world: &mut World) {
     let e = world.new_entity();
 
-    world.add_component_to_entity(e, Sprite{name: "sentinel", index: Some(1)});
+    world.add_component_to_entity(e, Sprite{name: "sentinel", index: Some(1), flip_x: false});
     world.add_component_to_entity(e, Position::new(SCREEN_WIDTH as f32 / 2.0, SCREEN_HEIGHT as f32 / 2.0));
     world.add_component_to_entity(e, Velocity::new(0.0, 0.0));
-    world.add_component_to_entity(e, Moveable {speed: 1.0, active: true, dir: Vec2::new(0.0, 0.0)});
+    world.add_component_to_entity(e, Moveable {speed: 0.6, active: true, dir: Vec2::new(0.0, 0.0)});
     world.add_component_to_entity(e, Collider{});
+    world.add_component_to_entity(e, Animator{
+        animation: Animation {
+            frames: vec![AnimationFrame::new(1, 100.0), AnimationFrame::new(0, 100.0)],
+            r#loop: true
+        },
+        frame_index: 0,
+        time: 0.0,
+        playing: false
+    });
+    world.add_component_to_entity(e, Light{strength: 20.0, color: Color::new(60, 60, 100)});
 }
 
 fn move_entity(world: &mut World) {
@@ -336,38 +453,14 @@ fn move_entity(world: &mut World) {
         |velocity: &Velocity, position: &mut Position| {
             position.x += velocity.x;
             position.y += velocity.y;
-        
-            position.x = position.x.clamp(0.0, SCREEN_WIDTH as f32 - 16.0);
-            position.y = position.y.clamp(0.0, SCREEN_HEIGHT as f32 - 16.0);
     });
 }
-
-fn turn(world: &mut World) {
-    iterate_entities!(world, [Velocity, Moveable], (Sprite), 
-        |velocity: &Velocity, _, sprite: &mut Sprite| {
-            if velocity.y.abs() > 0.1 {
-                if velocity.y > 0.0 {
-                    sprite.index = Some(0);
-                } else if velocity.y < 0.0 {
-                    sprite.index = Some(1);
-                }
-            } else if velocity.x.abs() > 0.1 {
-                if velocity.x > 0.0 {
-                    sprite.index = Some(2);
-                } else if velocity.x < 0.0 {
-                    sprite.index = Some(3);
-                }
-            }
-        }
-    );
-}
-
 
 fn velocity_drag(world: &mut World) {
     iterate_entities!(world, (Velocity), 
         |velocity: &mut Velocity| {
-            velocity.x -= velocity.x * 0.05;
-            velocity.y -= velocity.y * 0.05;
+            velocity.x -= velocity.x * 0.2;
+            velocity.y -= velocity.y * 0.2;
         }
     );
 }
@@ -381,7 +474,7 @@ fn check_collisions(world: &mut World) {
             iterate_entities!(world, [Position, Collider], 
                 |position_b: &Position, _| {
                     if position_a != position_b {
-                        if check_collision(position_a.value, Bounds{right: 16.0, bottom: 16.0}, position_b.value, Bounds{right: 16.0, bottom: 16.0}) {
+                        if check_collision(position_a.value, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}, position_b.value, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}) {
                             collided_velocities.push((velocity.x / 2.0, velocity.y / 2.0));
                             velocity.x = 0.0;
                             velocity.y = 0.0;
@@ -415,9 +508,17 @@ fn check_collision(pos_a: Vec2, bounds_a: Bounds, pos_b: Vec2, bounds_b: Bounds)
 }
 
 fn set_moveable_dir(world: &mut World, input: &Input) {
-    iterate_entities!(world, (Moveable, Velocity),
-        |moveable: &mut Moveable, velocity: &mut Velocity| {
-            let dir_x : f32 = if input.right_pressed { 1.0 } else if input.left_pressed { -1.0 } else { 0.0 };
+    iterate_entities!(world, (Moveable, Velocity, Animator, Sprite),
+        |moveable: &mut Moveable, velocity: &mut Velocity, animator: &mut Animator, sprite: &mut Sprite| {
+            let dir_x : f32 = 
+            if input.right_pressed {
+                sprite.flip_x = false;
+                 1.0 
+            } else if input.left_pressed {
+                sprite.flip_x = true;
+                 -1.0 
+            } else { 0.0 };
+
             let dir_y : f32 = if input.up_pressed { -1.0 } else if input.down_pressed { 1.0 } else { 0.0 };
         
             let magnitude = dir_x.abs() + dir_y.abs();
@@ -431,23 +532,11 @@ fn set_moveable_dir(world: &mut World, input: &Input) {
             if magnitude != 0.0 {
                 velocity.x = normalized_x * moveable.speed;
                 velocity.y = normalized_y * moveable.speed;
+                animator.playing = true;
+            } else {
+                animator.playing = false;
+                animator.time = 0.0;
             }
-        }
-    );
-}
-
-fn check_moveable(world: &mut World) {
-    iterate_entities_with_id!(world, [Position], (Moveable), 
-        |moveable_id, moveable_pos: &Position, moveable: &mut Moveable| {
-            iterate_entities_with_id!(world, [Collider, Position], 
-                |id, _, pos: &Position| {
-                    if moveable_id != id {
-                        if check_collision((moveable_pos.value + Vec2::new(8.0, 8.0)) + (moveable.dir * 10.0), Bounds { right: 0.0, bottom: 0.0 }, pos.value, Bounds { right: 16.0, bottom: 16.0 }) {
-                            dbg!(pos);
-                        }
-                    } 
-                }
-            );
         }
     );
 }

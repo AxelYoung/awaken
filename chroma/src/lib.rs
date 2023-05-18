@@ -11,7 +11,7 @@ mod builder;
 
 pub const SCALE: u32 = 4;
 
-pub const TILE_SIZE: u32 = 16;
+pub const TILE_SIZE: u32 = 8;
 pub const TILE_DATA_SIZE: usize = (TILE_SIZE * TILE_SIZE * 4) as usize;
 
 pub struct ChromaContext {
@@ -47,7 +47,7 @@ impl Chroma {
                 format: wgpu::TextureFormat::Rgba8UnormSrgb,
                 width: self.surface_size.width as u32,
                 height: self.surface_size.height as u32,
-                present_mode: wgpu::PresentMode::Fifo,
+                present_mode: wgpu::PresentMode::Immediate,
                 alpha_mode: self.alpha_mode,
                 view_formats: vec![]
             });
@@ -115,24 +115,26 @@ impl Chroma {
         &self.pixels
     }
     
+    /*
     pub fn draw_tile(&mut self, sprite: &[u8], pos_x: u32, pos_y: u32) {
         self.draw_sprite(sprite, pos_x * TILE_SIZE, pos_y * TILE_SIZE);
     }
+    */
 
-    pub fn draw_sprite_from_sheet(&mut self, sprite: &[u8], index: u32, pos_x: u32, pos_y: u32) {
+    pub fn draw_sprite_from_sheet(&mut self, sprite: &[u8], index: u32, pos_x: u32, pos_y: u32, flip_x: bool) {
         for y in 0..TILE_SIZE {
             for x in 0..TILE_SIZE {
                 let pixel_index = (((y * TILE_SIZE) + x) * 4) + index * TILE_DATA_SIZE as u32;
-                self.draw_pixel(&sprite[pixel_index as usize..(pixel_index + 4) as usize], x + pos_x, y + pos_y)
+                self.draw_pixel(&sprite[pixel_index as usize..(pixel_index + 4) as usize], if flip_x {TILE_SIZE - x - 1} else {x} + pos_x, y + pos_y)
             }
         }
     }
     
-    pub fn draw_sprite(&mut self, sprite: &[u8], pos_x: u32, pos_y: u32) {
+    pub fn draw_sprite(&mut self, sprite: &[u8], pos_x: u32, pos_y: u32, flip_x: bool) {
         for y in 0..TILE_SIZE {
             for x in 0..TILE_SIZE {
                 let index = ((y * TILE_SIZE) + x) * 4;
-                self.draw_pixel(&sprite[index as usize..(index + 4) as usize], x + pos_x, y + pos_y)
+                self.draw_pixel(&sprite[index as usize..(index + 4) as usize], if flip_x {TILE_SIZE - x - 1} else {x} + pos_x, y + pos_y)
             }
         }
     }
@@ -145,4 +147,12 @@ impl Chroma {
         }
     }
     
+    pub fn get_pixel(&self, x: u32, y: u32) -> [u8; 4] {
+        let index = ((y * self.width as u32) + x) * 4;
+        let mut pixel = [0 as u8; 4];
+        for offset in 0..4 {
+            pixel[offset] = self.pixels[(index as usize + offset) as usize];
+        }
+        pixel
+    }
 }

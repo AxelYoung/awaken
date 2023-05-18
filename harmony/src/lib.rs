@@ -4,7 +4,7 @@ mod macros;
 
 pub struct World {
     entities_count: usize,
-    component_vecs: Vec<Box<dyn ComponentVec>>
+    component_vecs: Vec<Box<dyn ComponentVec>>,
 }
 
 impl World {
