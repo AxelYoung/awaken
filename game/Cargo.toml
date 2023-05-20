@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 winit = "0.28.3"
 chroma = { path = "../chroma" }
-asset_loader = { path = "../asset_loader" }
 harmony = { path = "../harmony" }
 env_logger = "0.10"
 log = "0.4"
@@ -16,7 +15,7 @@ pollster = "0.3"
 anyhow = "1.0"
 rand = "0.8.5"
 cfg-if = "1"
-instant = { version = "0.1", features = [ "stdweb" ] }
+instant = { version = "0.1"}
 num = "0.4.0"
 rodio = { version = "0.17" }
 winit_input_helper = "0.14.1"
