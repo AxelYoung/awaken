@@ -1,8 +1,8 @@
 #![allow(non_snake_case)]
 
 use harmony::*;
-use chroma::Chroma;
-use rand::Rng;
+use chroma::*;
+
 use winit::{event_loop::{EventLoop, ControlFlow}, 
             window::WindowBuilder, dpi::PhysicalSize, 
             event::VirtualKeyCode};
@@ -76,10 +76,18 @@ impl std::ops::Add<Vec2> for Vec2 {
     }
 }
 
-struct Sprite<'a> {
-    name: &'a str,
-    index: Option<u32>,
+struct Sprite {
+    index: u32,
     flip_x: bool
+}
+
+impl Sprite {
+    pub fn new(index: u32) -> Self {
+        Self {
+            index,
+            flip_x: false
+        }
+    }
 }
 
 #[derive(PartialEq, Debug)]
@@ -237,7 +245,7 @@ pub fn run() {
 
     // Renderer
 
-    let mut chroma = Chroma::new(SCREEN_WIDTH as u16, SCREEN_HEIGHT as u16, &window);
+    let mut chroma =  pollster::block_on(Chroma::new(SCREEN_WIDTH, SCREEN_HEIGHT, &window));
 
     // ECS
     
@@ -248,19 +256,19 @@ pub fn run() {
     let e = world.new_entity();
 
     world.add_component_to_entity(e, Position::new(80.0, 80.0));
-    world.add_component_to_entity(e, Sprite{name: "torch", index: None, flip_x: false});
+    world.add_component_to_entity(e, Sprite::new(5));
     world.add_component_to_entity(e, Light{strength: 30.0, color: Color::new(100, 60, 30)});
 
     let e = world.new_entity();
 
     world.add_component_to_entity(e, Position::new(40.0, 40.0));
-    world.add_component_to_entity(e, Sprite{name: "torch", index: None, flip_x: false});
+    world.add_component_to_entity(e, Sprite::new(5));
     world.add_component_to_entity(e, Light{strength: 12.0, color: Color::new(100, 200, 100)});
 
     let e = world.new_entity();
 
     world.add_component_to_entity(e, Position::new(100.0, 35.0));
-    world.add_component_to_entity(e, Sprite{name: "torch", index: None, flip_x: false});
+    world.add_component_to_entity(e, Sprite::new(5));
     world.add_component_to_entity(e, Light{strength: 16.0, color: Color::new(50, 50, 50)});
 
     create_player_entity(&mut world);
@@ -276,6 +284,9 @@ pub fn run() {
         if input.update(&event) {
             let delta_time = instant::now() - last_tick;
             last_tick = instant::now();
+
+            let fps = 1000.0 / delta_time;
+            println!("FPS: {}", fps);
 
             update(&mut world, &input_manager(&mut input, control_flow), &delta_time);
 
@@ -308,67 +319,18 @@ fn fixed_update(world: &mut World) {
 
 fn draw(world: &mut World, chroma: &mut Chroma){
     chroma.clear();
-        
+
     draw_entity(world, chroma);
-    draw_lightmap(world, chroma);
 
     chroma.render();
 }
 
 fn draw_entity(world: &mut World, chroma: &mut Chroma) {
-    iterate_entities!(world, [Sprite, Position], 
-        |sprite : &Sprite, position: &Position| {
-            let sprite_data = asset_loader::get_sprite(sprite.name);
-
-            let x = position.x as u32;
-            let y = position.y as u32;
-        
-            if let Some(index) = sprite.index {
-                chroma.draw_sprite_from_sheet(sprite_data, index, x, y, sprite.flip_x);
-            } else {
-                chroma.draw_sprite(sprite_data, x, y, sprite.flip_x);
-            }
+    iterate_entities!(world, [Position], (Sprite), 
+        |position: &Position, sprite : &mut Sprite| {
+            chroma.add_tile(position.x, position.y, sprite.index);
         }
     );
-}
-
-const DARKNESS: i16 = 100;
-
-fn draw_lightmap(world: &mut World, chroma: &mut Chroma) {
-    
-    let mut lights : Vec<(f32, Color, Vec2)> = Vec::new();
-    
-    iterate_entities!(world, [Light, Position], 
-        |light: &Light, position: &Position| {
-            lights.push((light.strength, light.color, position.value));
-        }
-    );
-    
-    for x in 0..SCREEN_WIDTH {
-        for y in 0..SCREEN_HEIGHT {
-            let mut r = -DARKNESS as f32;
-            let mut g = -DARKNESS as f32;
-            let mut b = -DARKNESS as f32;
-
-            for (light, color, position) in lights.iter() {
-                let mut dist = position.dist(Vec2::new(x as f32 - 3.0, y as f32 - 3.0));
-                let min_dist = *light + rand::thread_rng().gen_range(-0.5..=0.5);
-                dist = (dist / 3.0).floor() * 3.0;
-                if dist <= min_dist { 
-                    let falloff = 1.0 - (dist / min_dist);
-                    r = r + (color.r as f32 * falloff);
-                    g = g + (color.g as f32 * falloff);
-                    b = b + (color.b as f32 * falloff);
-                }
-            }
-
-            let mut pixel = chroma.get_pixel(x, y);
-            pixel[0] = (pixel[0] as f32 + r) as u8;
-            pixel[1] = (pixel[1] as f32 + g) as u8;
-            pixel[2] = (pixel[2] as f32 + b) as u8;
-            chroma.draw_pixel(&pixel, x, y);
-        }
-    }
 }
 
 fn input_manager(input: &mut WinitInputHelper, control_flow: &mut ControlFlow) -> Input {
@@ -397,7 +359,7 @@ fn animate(world: &mut World, delta_time: &f64) {
                 if animator.time > animator.current_frame().length {
                     animator.time = 0.0;
                     animator.step();
-                    sprite.index = Some(animator.current_frame().sprite);
+                    sprite.index = animator.current_frame().sprite;
                 }
             }
         }
@@ -414,14 +376,10 @@ struct Input {
 fn create_map_entities(world: &mut World) {
     for x in 0..16 {
         for y in 0..14 {
-            let sprite = Sprite {
-                name: match MAP[y][x] {
-                    0 => "stone",
-                    _ => "cobble"
-                },
-                index: None,
-                flip_x: false
-            };
+            let sprite = Sprite::new(match MAP[y][x] {
+                0 => 3,
+                _ => 2
+            });
 
             let position = Position::new(x as f32 * SPRITE_SIZE as f32, y as f32 * SPRITE_SIZE as f32);
             let e = world.new_entity();
@@ -437,7 +395,7 @@ fn create_map_entities(world: &mut World) {
 fn create_player_entity(world: &mut World) {
     let e = world.new_entity();
 
-    world.add_component_to_entity(e, Sprite{name: "sentinel", index: Some(1), flip_x: false});
+    world.add_component_to_entity(e, Sprite::new(0));
     world.add_component_to_entity(e, Position::new(SCREEN_WIDTH as f32 / 2.0, SCREEN_HEIGHT as f32 / 2.0));
     world.add_component_to_entity(e, Velocity::new(0.0, 0.0));
     world.add_component_to_entity(e, Moveable {speed: 0.6, active: true, dir: Vec2::new(0.0, 0.0)});
@@ -451,7 +409,7 @@ fn create_player_entity(world: &mut World) {
         time: 0.0,
         playing: false
     });
-    //world.add_component_to_entity(e, Light{strength: 20.0, color: Color::new(60, 60, 100)});
+    world.add_component_to_entity(e, Light{strength: 20.0, color: Color::new(60, 60, 100)});
 }
 
 fn move_entity(world: &mut World) {
@@ -525,7 +483,7 @@ fn set_moveable_dir(world: &mut World, input: &Input) {
                  -1.0 
             } else { 0.0 };
 
-            let dir_y : f32 = if input.up_pressed { -1.0 } else if input.down_pressed { 1.0 } else { 0.0 };
+            let dir_y : f32 = if input.up_pressed { 1.0 } else if input.down_pressed { -1.0 } else { 0.0 };
         
             let magnitude = dir_x.abs() + dir_y.abs();
         

@@ -16,3 +16,10 @@
 [] animations that don't use Sprite (animating a float or vec)
 
 first stage has a single lever that you activate to continue
+
+AVERAGE FPS:
+Pixel Chroma without lightmap: ~210
+Pixel Chroma with lightmap: ~105
+
+[] render everything within a very small surface
+[] scale that surface up with a shader?
