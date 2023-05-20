@@ -9,8 +9,8 @@
 [] switches
 [] keys
 [] looping with timer
-[] have png-to-pix run at compile time automatically
-[] fix wasm build
+[X] have png-to-pix run at compile time automatically
+[X] fix wasm build
 [] music
 [] sounds
 [] animations that don't use Sprite (animating a float or vec)
@@ -21,5 +21,4 @@ AVERAGE FPS:
 Pixel Chroma without lightmap: ~210
 Pixel Chroma with lightmap: ~105
 
-[] render everything within a very small surface
-[] scale that surface up with a shader?
+Upscale Chroma without lightmap: ~600

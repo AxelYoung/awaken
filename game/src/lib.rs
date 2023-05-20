@@ -278,8 +278,9 @@ pub fn run() {
 
     event_loop.run(move |event, _, control_flow| {
         if input.update(&event) {
-            let delta_time = instant::Instant::now() - last_tick;
-            last_tick = instant::Instant::now();
+            let current_time = instant::Instant::now();
+            let delta_time = current_time.duration_since(last_tick);
+            last_tick = current_time;
 
             update(&mut world, &input_manager(&mut input, control_flow), &delta_time.as_millis());
 

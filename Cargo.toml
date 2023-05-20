@@ -1,8 +1,7 @@
 [workspace]
 
 members = [
-    "asset_loader",
+    "game",
     "chroma",
     "harmony",
-    "game"
 ]
