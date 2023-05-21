@@ -16,23 +16,51 @@ use wasm_bindgen::prelude::*;
 const SPRITE_SIZE: u16 = 8;
 
 // In milliseconds
-const TICK_DURATION: u128 = 15;
+const TICK_DURATION: u128 = 20;
 
-const MAP: [[u8;16];14] = [
-    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+const ROOM_WIDTH : u8 = 16;
+const ROOM_HEIGHT : u8 = 14;
+
+const MAP_WIDTH: u8 = 1;
+const MAP_HEIGHT: u8 = 2;
+
+const MAP: [[[[u8;ROOM_WIDTH as usize];ROOM_HEIGHT as usize]; MAP_WIDTH as usize]; MAP_HEIGHT as usize] = [
+    [START_HALL],
+    [START_ROOM]
+];
+
+const START_ROOM: [[u8;ROOM_WIDTH as usize];ROOM_HEIGHT as usize] = [
+    [0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0],
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-    [0,1,1,1,0,1,1,1,1,1,1,1,1,1,1,0],
-    [0,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0],
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-    [0,1,1,1,1,1,1,1,1,0,1,1,1,1,1,0],
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
-    [0,1,1,0,1,1,1,1,1,1,1,1,1,1,1,0],
-    [0,1,1,0,0,1,1,1,1,1,1,1,1,1,1,0],
-    [0,1,1,1,1,1,1,1,0,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
     [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+];
+
+const START_HALL: [[u8;ROOM_WIDTH as usize];ROOM_HEIGHT as usize] = [
+    [0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0],
+    [0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0]
 ];
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -131,6 +159,11 @@ struct Moveable {
 struct Bounds {
     right: f32,
     bottom: f32,
+}
+
+struct Transition {
+    dir: Vec2,
+    collided: bool
 }
 
 struct Animator {
@@ -243,6 +276,8 @@ pub fn run() {
 
     let mut chroma =  pollster::block_on(Chroma::new(SCREEN_WIDTH, SCREEN_HEIGHT, &window));
 
+    chroma.update_camera(0.0, 4.0);
+
     // ECS
     
     let mut world = World::new();
@@ -251,21 +286,8 @@ pub fn run() {
 
     let e = world.new_entity();
 
-    world.add_component_to_entity(e, Position::new(80.0, 80.0));
-    world.add_component_to_entity(e, Sprite::new(5));
-    world.add_component_to_entity(e, Light{strength: 30.0, color: Color::new(100, 60, 30)});
-
-    let e = world.new_entity();
-
-    world.add_component_to_entity(e, Position::new(40.0, 40.0));
-    world.add_component_to_entity(e, Sprite::new(5));
-    world.add_component_to_entity(e, Light{strength: 12.0, color: Color::new(100, 200, 100)});
-
-    let e = world.new_entity();
-
-    world.add_component_to_entity(e, Position::new(100.0, 35.0));
-    world.add_component_to_entity(e, Sprite::new(5));
-    world.add_component_to_entity(e, Light{strength: 16.0, color: Color::new(50, 50, 50)});
+    world.add_component_to_entity(e, Position::new(8.0 * SPRITE_SIZE as f32, 0.0));
+    world.add_component_to_entity(e, Transition {dir: Vec2::new(0.0, 1.0), collided: false});
 
     create_player_entity(&mut world);
 
@@ -284,7 +306,7 @@ pub fn run() {
 
             update(&mut world, &input_manager(&mut input, control_flow), &delta_time.as_millis());
 
-            fixed_tick_manager(&mut world, &delta_time.as_millis(), &mut tick_accumultor);
+            fixed_tick_manager(&mut world, &mut chroma, &delta_time.as_millis(), &mut tick_accumultor);
         
             draw(&mut world, &mut chroma);
         }
@@ -296,17 +318,18 @@ fn update(world: &mut World, input: &Input, delta_time: &u128) {
     set_moveable_dir(world, input);
 }
 
-fn fixed_tick_manager(world: &mut World, delta_time: &u128, tick_accumulator: &mut u128) {
+fn fixed_tick_manager(world: &mut World, chroma: &mut Chroma, delta_time: &u128, tick_accumulator: &mut u128) {
     *tick_accumulator += delta_time;
 
     while *tick_accumulator >= TICK_DURATION {
-        fixed_update(world);
+        fixed_update(world, chroma);
         *tick_accumulator -= TICK_DURATION;
     }
 }
 
-fn fixed_update(world: &mut World) {
+fn fixed_update(world: &mut World, chroma: &mut Chroma) {
     check_collisions(world);
+    transition_collision(world, chroma);
     move_entity(world);
     velocity_drag(world);
 }
@@ -331,7 +354,7 @@ fn draw_lightmap(world: &mut World, chroma: &mut Chroma) {
 fn draw_entity(world: &mut World, chroma: &mut Chroma) {
     iterate_entities!(world, [Position, Sprite], 
         |position: &Position, sprite : &Sprite| {
-            chroma.add_tile(position.x, position.y, sprite.index);
+            chroma.add_tile(position.x, position.y, sprite.index, sprite.flip_x);
         }
     );
 }
@@ -362,7 +385,7 @@ fn animate(world: &mut World, delta_time: &u128) {
                 if animator.time > animator.current_frame().length {
                     animator.time = 0;
                     animator.step();
-                    sprite.index = animator.current_frame().sprite;
+                    sprite.index = animator.current_frame().sprite + if sprite.flip_x {2} else {0};
                 }
             }
         }
@@ -377,31 +400,37 @@ struct Input {
 }
 
 fn create_map_entities(world: &mut World) {
-    for x in 0..16 {
-        for y in 0..14 {
-            let sprite = Sprite::new(match MAP[y][x] {
-                0 => 3,
-                _ => 2
-            });
-
-            let position = Position::new(x as f32 * SPRITE_SIZE as f32, y as f32 * SPRITE_SIZE as f32);
-            let e = world.new_entity();
-            world.add_component_to_entity(e, sprite);
-            world.add_component_to_entity(e, position);
-            if MAP[y][x] == 0 {
-                world.add_component_to_entity(e, Collider{});
+    for room_x in 0..MAP_WIDTH as usize {
+        for room_y in 0..MAP_HEIGHT as usize {
+            for x in 0..ROOM_WIDTH as usize {
+                for y in 0..ROOM_HEIGHT as usize{
+                    let sprite = Sprite::new(match MAP[room_y][room_x][y][x] {
+                        0 => 5,
+                        _ => 4
+                    });
+        
+                    let position = Position::new(
+                        (x as f32 * SPRITE_SIZE as f32) + (room_x as u8 * ROOM_WIDTH * SPRITE_SIZE as u8) as f32, 
+                        (((ROOM_HEIGHT - 1) as f32 - y as f32) * SPRITE_SIZE as f32) - (room_y as u8 * ROOM_HEIGHT * SPRITE_SIZE as u8) as f32);
+                    let e = world.new_entity();
+                    world.add_component_to_entity(e, sprite);
+                    world.add_component_to_entity(e, position);
+                    if MAP[room_y][room_x][y][x] == 0 {
+                        world.add_component_to_entity(e, Collider{});
+                    }
+                }
             }
-        }
-    }
+        } 
+    } 
 }
 
 fn create_player_entity(world: &mut World) {
     let e = world.new_entity();
 
     world.add_component_to_entity(e, Sprite::new(0));
-    world.add_component_to_entity(e, Position::new(SCREEN_WIDTH as f32 / 2.0, SCREEN_HEIGHT as f32 / 2.0));
+    world.add_component_to_entity(e, Position::new(SCREEN_WIDTH as f32 / 2.0, (SCREEN_HEIGHT as f32 / 2.0) - (ROOM_HEIGHT as u16 * SPRITE_SIZE) as f32));
     world.add_component_to_entity(e, Velocity::new(0.0, 0.0));
-    world.add_component_to_entity(e, Moveable {speed: 0.6, active: true, dir: Vec2::new(0.0, 0.0)});
+    world.add_component_to_entity(e, Moveable {speed: 0.8, active: true, dir: Vec2::new(0.0, 0.0)});
     world.add_component_to_entity(e, Collider{});
     world.add_component_to_entity(e, Animator{
         animation: Animation {
@@ -413,6 +442,8 @@ fn create_player_entity(world: &mut World) {
         playing: false
     });
     world.add_component_to_entity(e, Light{strength: 20.0, color: Color::new(60, 60, 100)});
+
+    world.player = Some(e);
 }
 
 fn move_entity(world: &mut World) {
@@ -433,33 +464,49 @@ fn velocity_drag(world: &mut World) {
 }
 
 fn check_collisions(world: &mut World) {
-    let mut collided : Vec<usize> = vec![];
-    let mut collided_velocities : Vec<(f32, f32)> = vec![];
-
-    iterate_entities_with_id!(world, [Position, Collider], (Velocity), 
-        |id, position_a: &Position, _, velocity: &mut Velocity| {            
+    iterate_entities!(world, [Position, Collider], (Velocity), 
+        |position_a: &Position, _, velocity: &mut Velocity| {            
             iterate_entities!(world, [Position, Collider], 
                 |position_b: &Position, _| {
                     if position_a != position_b {
-                        if check_collision(position_a.value, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}, position_b.value, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}) {
-                            collided_velocities.push((velocity.x / 2.0, velocity.y / 2.0));
+                        let next_pos = Vec2::new(position_a.x + velocity.x, position_a.y+ velocity.y);
+                        if check_collision(next_pos, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}, position_b.value, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}) {
                             velocity.x = 0.0;
                             velocity.y = 0.0;
-                            collided.push(id);
                         }
                     }
                 }
             );
         }
     );
-
-    for (id, velocity) in collided.iter().zip(collided_velocities) {
-        if let Some(Some(position)) = world.get_component_from_entity::<Position>(*id) {
-            position.x -= velocity.0 * 2.0;
-            position.y -= velocity.1 * 2.0;
-        }
-    }
 }
+
+fn transition_collision(world: &mut World, chroma: &mut Chroma) {
+    let player_position = world.borrow_components::<Position>().unwrap();
+    let player_position = player_position[world.player.unwrap()].as_ref();
+    iterate_entities!(world, [Position], (Transition), 
+        |position_b: &Position, transition: &mut Transition| {
+            let player_position = player_position.unwrap().value;
+            if check_collision(player_position, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}, position_b.value, Bounds{right: SPRITE_SIZE as f32, bottom: 0.1 as f32}) {
+                if !transition.collided {
+                    transition.collided = true;
+                    if transition.dir.x == 0.0 {
+                        let dir = if player_position.y + 4.0 > position_b.y { -1.0 } else { 1.0 };
+                        chroma.update_camera(chroma.camera.x, chroma.camera.y - (dir * 4.0));
+                        println!("{} vs {}", player_position.y, position_b.y);
+                    } else {
+                        let dir = if player_position.x + 4.0 > position_b.x { -1.0 } else { 1.0 };
+                        chroma.update_camera(chroma.camera.x + (dir * 4.0), chroma.camera.y);
+                    }
+                }
+            } else {
+                transition.collided = false;
+            }
+        }
+    );
+}
+
+
 
 fn check_collision(pos_a: Vec2, bounds_a: Bounds, pos_b: Vec2, bounds_b: Bounds) -> bool {
     let right_a = pos_a.x + bounds_a.right;

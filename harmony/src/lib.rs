@@ -5,13 +5,15 @@ mod macros;
 pub struct World {
     entities_count: usize,
     component_vecs: Vec<Box<dyn ComponentVec>>,
+    pub player: Option<usize>
 }
 
 impl World {
     pub fn new() -> Self {
         Self {
             entities_count: 0,
-            component_vecs: Vec::new()
+            component_vecs: Vec::new(),
+            player: None
         }
     }
 
@@ -66,7 +68,7 @@ impl World {
             self.component_vecs.push(Box::new(RefCell::new(new_component_vec)));
         }
 
-    pub fn get_component_from_entity <ComponentType: 'static> (
+    pub fn get_component_from_entity_mut <ComponentType: 'static> (
         &mut self,
         entity: usize) -> Option<&mut Option<ComponentType>> {
             for component_vec in self.component_vecs.iter_mut() {

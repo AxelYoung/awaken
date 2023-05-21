@@ -39,7 +39,7 @@ impl Vertex {
     }
 }
 
-const SPRITE_COUNT: u8 = 6;
+const SPRITE_COUNT: u8 = 8;
 
 const SCREEN_WIDTH: u32 = 128;
 const SCREEN_HEIGHT: u32= 112;
@@ -85,8 +85,32 @@ pub struct Chroma {
     clip_rect: (u32, u32, u32, u32),
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
-    update_instance: bool
+    pub camera: Camera,
+    camera_raw: CameraRaw,
+    camera_buffer: wgpu::Buffer,
+    camera_bind_group: wgpu::BindGroup
 }
+
+pub struct Camera {
+    pub x: f32,
+    pub y: f32
+}
+
+impl Camera {
+    pub fn new() -> Self { Self {x: 0.0, y: 0.0} }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct CameraRaw {
+    data: [[f32; 4]; 4]
+}
+
+impl CameraRaw {
+    pub fn new(camera: &Camera) -> Self { Self { data: cgmath::Matrix4::from_translation(cgmath::Vector3 { x: camera.x, y: camera.y, z: 0.0 }).into() } } 
+    pub fn update(&mut self, camera: &Camera) { self.data = cgmath::Matrix4::from_translation(cgmath::Vector3 { x: camera.x, y: camera.y, z: 0.0 }).into(); } 
+}
+
 
 impl Chroma {
     pub async fn new(pixel_width: u32, pixel_height: u32, window: &winit::window::Window) -> Self {
@@ -122,7 +146,7 @@ impl Chroma {
                 None,
         ).await.unwrap();
 
-        let (render_pipeline, vertex_buffer, index_buffer, indices_count, diffuse_bind_group, texture, texture_view, instance_buffer, instances) = 
+        let (render_pipeline, vertex_buffer, index_buffer, indices_count, diffuse_bind_group, texture, texture_view, instance_buffer, instances, camera, camera_raw, camera_buffer, camera_bind_group) = 
         Chroma::create_pixel_renderer(pixel_width, pixel_height, &device, &queue);
 
         let (config, upscale_pipeline, upscale_vertex_buffer, upscale_bind_group, clip_rect) = 
@@ -149,7 +173,11 @@ impl Chroma {
             clip_rect,
             instance_buffer,
             instances,
-            update_instance: false
+
+            camera,
+            camera_raw,
+            camera_buffer,
+            camera_bind_group
         }
     }
 
@@ -161,8 +189,7 @@ impl Chroma {
     }
 
     pub fn render(&mut self) {
-
-        if self.update_instance { self.configure_instances(); }
+        self.configure_instances();
 
         let mut encoder = self.device.create_command_encoder(
             &wgpu::CommandEncoderDescriptor {
@@ -191,6 +218,7 @@ impl Chroma {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
@@ -230,7 +258,7 @@ impl Chroma {
     }
 
     fn create_pixel_renderer(width: u32, height: u32, device: &wgpu::Device, queue: &wgpu::Queue) ->
-    (wgpu::RenderPipeline, wgpu::Buffer, wgpu::Buffer, u32, wgpu::BindGroup, wgpu::Texture, wgpu::TextureView, wgpu::Buffer, Vec<Instance>) {
+    (wgpu::RenderPipeline, wgpu::Buffer, wgpu::Buffer, u32, wgpu::BindGroup, wgpu::Texture, wgpu::TextureView, wgpu::Buffer, Vec<Instance>, Camera, CameraRaw, wgpu::Buffer, wgpu::BindGroup) {
         let texture_desc = wgpu::TextureDescriptor {
             size: wgpu::Extent3d {
                 width,
@@ -290,6 +318,40 @@ impl Chroma {
             label: Some("diffuse_bind_group"),
         });
 
+        let mut camera = Camera::new();
+        let mut camera_raw = CameraRaw::new(&camera);
+
+        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Camera Buffer"),
+            contents: bytemuck::cast_slice(&[camera_raw]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let camera_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+                label: Some("camera_bind_group_layout"),
+            });
+
+        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &camera_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: camera_buffer.as_entire_binding(),
+            }],
+            label: Some("camera_bind_group"),
+        });
+
+
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/shader.wgsl").into()),
@@ -312,7 +374,7 @@ impl Chroma {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&texture_bind_group_layout],
+                bind_group_layouts: &[&texture_bind_group_layout, &camera_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -366,7 +428,7 @@ impl Chroma {
 
         let indices_count = INDICES.len() as u32;
 
-        (render_pipeline, vertex_buffer, index_buffer, indices_count, diffuse_bind_group, texture, texture_view, instance_buffer, instances)
+        (render_pipeline, vertex_buffer, index_buffer, indices_count, diffuse_bind_group, texture, texture_view, instance_buffer, instances, camera, camera_raw, camera_buffer, camera_bind_group)
     }
 
     fn create_upscale_renderer(surface: &wgpu::Surface, adapter: &wgpu::Adapter, device: &wgpu::Device, window_size: winit::dpi::PhysicalSize<u32>,
@@ -385,7 +447,7 @@ impl Chroma {
             format: surface_format,
             width: window_size.width,
             height: window_size.height,
-            present_mode: surface_capabilities.present_modes[0],
+            present_mode: wgpu::PresentMode::Fifo,
             alpha_mode: surface_capabilities.alpha_modes[0],
             view_formats: vec![]
         };
@@ -538,10 +600,9 @@ impl Chroma {
                     usage: wgpu::BufferUsages::VERTEX,
                 }
             );
-        self.update_instance = false;
     }
 
-    pub fn add_tile(&mut self, x: f32, y: f32, index: u32) {
+    pub fn add_tile(&mut self, x: f32, y: f32, index: u32, flip_x: bool) {
         self.instances.push(
             Instance { 
                 position: cgmath::Vector2 {
@@ -554,12 +615,17 @@ impl Chroma {
                 }
             }
         );
-        self.update_instance = true;
+    }
+
+    pub fn update_camera(&mut self, x: f32, y:f32) {
+        self.camera.x = x;
+        self.camera.y = y;
+        self.camera_raw.update(&self.camera);
+        self.queue.write_buffer(&self.camera_buffer, 0, bytemuck::cast_slice(&[self.camera_raw]));
     }
 
     pub fn clear(&mut self) {
         self.instances = vec![];
-        self.update_instance = true;
     }
 }
 
