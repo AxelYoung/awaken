@@ -201,6 +201,15 @@ struct Light {
     color: Color
 }
 
+struct Pushable {
+
+}
+
+struct Button {
+    gate_ids: Vec<usize>,
+    collided: Option<usize>
+}
+
 #[derive(Clone, Copy)]
 struct Color {
     r: u8,
@@ -289,6 +298,32 @@ pub fn run() {
     world.add_component_to_entity(e, Position::new(8.0 * SPRITE_SIZE as f32, 0.0));
     world.add_component_to_entity(e, Transition {dir: Vec2::new(0.0, 1.0), collided: false});
 
+    let gate_1 = world.new_entity();
+
+    world.add_component_to_entity(gate_1, Position::new(8.0 * SPRITE_SIZE as f32, -1.0 * SPRITE_SIZE as f32));
+    world.add_component_to_entity(gate_1, Sprite::new(6));
+    //world.add_component_to_entity(gate_1, Collider {});
+
+    let gate_2 = world.new_entity();
+
+    world.add_component_to_entity(gate_2, Position::new(7.0 * SPRITE_SIZE as f32, -1.0 * SPRITE_SIZE as f32));
+    world.add_component_to_entity(gate_2, Sprite::new(6));
+    //world.add_component_to_entity(gate_2, Collider {});
+
+    let button = world.new_entity();
+
+    world.add_component_to_entity(button, Position::new(4.0 * SPRITE_SIZE as f32, -5.0 * SPRITE_SIZE as f32));
+    world.add_component_to_entity(button, Sprite::new(7));
+    world.add_component_to_entity(button, Button { gate_ids: vec![gate_1, gate_2], collided: None});
+
+    let push_box = world.new_entity();
+
+    world.add_component_to_entity(push_box, Position::new(12.0 * SPRITE_SIZE as f32, -9.0 * SPRITE_SIZE as f32));
+    world.add_component_to_entity(push_box, Sprite::new(9));
+    world.add_component_to_entity(push_box, Velocity::new(0.0, 0.0));
+    world.add_component_to_entity(push_box, Collider{});
+    world.add_component_to_entity(push_box, Pushable{});
+
     create_player_entity(&mut world);
 
     let mut input = WinitInputHelper::new();
@@ -328,8 +363,10 @@ fn fixed_tick_manager(world: &mut World, chroma: &mut Chroma, delta_time: &u128,
 }
 
 fn fixed_update(world: &mut World, chroma: &mut Chroma) {
+    pushables(world);
     check_collisions(world);
-    transition_collision(world, chroma);
+    buttons(world);
+    transitions(world, chroma);
     move_entity(world);
     velocity_drag(world);
 }
@@ -463,6 +500,34 @@ fn velocity_drag(world: &mut World) {
     );
 }
 
+fn pushables(world: &mut World) {
+
+    let mut vel : Option<(f32, f32)> = None;
+    let mut pushable : Option<usize> = None;
+
+    iterate_entities!(world, [Position, Collider], (Velocity), 
+        |position_a: &Position, _, velocity: &mut Velocity| {            
+            iterate_entities_with_id!(world, [Collider, Pushable, Position], 
+                |id, _, _, position_b: &Position| {
+                    let next_pos = Vec2::new(position_a.x + velocity.x, position_a.y+ velocity.y);
+                    if check_collision(next_pos, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}, position_b.value, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}) {
+                        pushable = Some(id);
+                        velocity.x *= 0.5;
+                        velocity.y *= 0.5;
+                        vel = Some((velocity.x, velocity.y));
+                    }
+                }
+            );
+        }
+    );
+
+    if let Some(id) = pushable {
+        let pos = world.get_component_from_entity_mut::<Velocity>(id).unwrap().as_mut().unwrap();
+        pos.x = vel.unwrap().0;
+        pos.y = vel.unwrap().1;
+    }
+}
+
 fn check_collisions(world: &mut World) {
     iterate_entities!(world, [Position, Collider], (Velocity), 
         |position_a: &Position, _, velocity: &mut Velocity| {            
@@ -481,7 +546,7 @@ fn check_collisions(world: &mut World) {
     );
 }
 
-fn transition_collision(world: &mut World, chroma: &mut Chroma) {
+fn transitions(world: &mut World, chroma: &mut Chroma) {
     let player_position = world.borrow_components::<Position>().unwrap();
     let player_position = player_position[world.player.unwrap()].as_ref();
     iterate_entities!(world, [Position], (Transition), 
@@ -506,6 +571,45 @@ fn transition_collision(world: &mut World, chroma: &mut Chroma) {
     );
 }
 
+fn buttons(world: &mut World) {
+
+    let mut gates_to_remove: Vec<usize> = vec![];
+    let mut gates_to_add: Vec<usize> = vec![];
+
+    iterate_entities_with_id!(world, [Position], (Collider), |id, position_a: &Position, _| {
+        iterate_entities!(world, [Position], (Button, Sprite), 
+        |position_b: &Position, button: &mut Button, sprite: &mut Sprite| {
+            if check_collision(position_a.value, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}, position_b.value, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}) {
+                if button.collided == None {
+                    for gate in &button.gate_ids {
+                        gates_to_remove.push(*gate);
+                    }
+                    sprite.index = 8;
+                    println!("Button down");
+                    button.collided = Some(id);
+                }
+            } else if button.collided == Some(id) {
+                for gate in &button.gate_ids {
+                    gates_to_add.push(*gate);
+                }
+                sprite.index = 7;
+                println!("Button up");
+                button.collided = None;
+            }
+        }
+    );
+    });
+
+    for gate in gates_to_add {
+        world.add_component_to_entity(gate, Sprite::new(6));
+        world.add_component_to_entity(gate, Collider{});
+    }
+
+    for gate in gates_to_remove {
+        world.remove_component_from_entity::<Sprite>(gate);
+        world.remove_component_from_entity::<Collider>(gate);
+    }
+}
 
 
 fn check_collision(pos_a: Vec2, bounds_a: Bounds, pos_b: Vec2, bounds_b: Bounds) -> bool {

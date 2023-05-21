@@ -6,7 +6,7 @@
 [] trail renderer
 [] particles
 [] moveable objects
-[] switches
+[x] switches
 [] keys
 [] looping with timer
 [X] have png-to-pix run at compile time automatically
@@ -15,6 +15,10 @@
 [] sounds
 [] animations that don't use Sprite (animating a float or vec)
 
+BUGS
+[x] button sprites aren't activated by non-player collisions
+
+
 first stage has a single lever that you activate to continue
 
 AVERAGE FPS:
@@ -22,3 +26,4 @@ Pixel Chroma without lightmap: ~210
 Pixel Chroma with lightmap: ~105
 
 Upscale Chroma without lightmap: ~600
+
