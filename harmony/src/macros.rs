@@ -19,7 +19,7 @@ macro_rules! iterate_entities {
             let $components = component_vec.iter();
         )*
 
-        let iter = multizip(($($components),*));
+        let iter = itertools::multizip(($($components),*));
         let filtered_iter = iter.filter_map(|($($components),*)| Some((($($components.as_ref()?),*))));
 
         for ($($components),*) in filtered_iter {
@@ -46,7 +46,7 @@ macro_rules! iterate_entities {
             let $mut_components = mut_components_vec.iter_mut();
         )*
 
-        let iter = multizip(($($mut_components),*));
+        let iter = itertools::multizip(($($mut_components),*));
         let iter = iter.filter_map(|($($mut_components),*)| Some((($($mut_components.as_mut()?),*))));
 
         for ($($mut_components),*) in iter {
@@ -66,7 +66,7 @@ macro_rules! iterate_entities {
             let $mut_components = mut_components_vec.iter_mut();
         )*
 
-        let iter = multizip(($($components),*, $($mut_components),*));
+        let iter = itertools::multizip(($($components),*, $($mut_components),*));
         let iter = iter.filter_map(|($($components),*, $($mut_components),*)| Some((($($components.as_ref()?),*, $($mut_components.as_mut()?),*))));
 
         for ($($components),*, $($mut_components),*) in iter {
@@ -96,7 +96,7 @@ macro_rules! iterate_entities_with_id {
             let $components = component_vec.iter();
         )*
 
-        let iter = multizip(($($components),*));
+        let iter = itertools::multizip(($($components),*));
         let filtered_iter = iter.enumerate().filter_map(|(id, ($($components),*))| Some(((id, $($components.as_ref()?),*))));
 
         for (id, $($components),*) in filtered_iter {
@@ -143,7 +143,7 @@ macro_rules! iterate_entities_with_id {
             let $mut_components = mut_components_vec.iter_mut();
         )*
 
-        let iter = multizip(($($components),*, $($mut_components),*));
+        let iter = itertools::multizip(($($components),*, $($mut_components),*));
         let iter = iter.enumerate().filter_map(|(id, ($($components),*, $($mut_components),*))| Some(((id, $($components.as_ref()?),*, $($mut_components.as_mut()?),*))));
 
         for (id, $($components),*, $($mut_components),*) in iter {

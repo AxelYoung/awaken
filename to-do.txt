@@ -1,19 +1,19 @@
-[] more advanced physics / collisions
-[] dithering for lights 
-[] more performant lighting
+[] lighting system
 [] raycasting system
-[] scene transitions / moveable camera
 [] trail renderer
 [] particles
-[] moveable objects
-[x] switches
 [] keys
 [] looping with timer
-[X] have png-to-pix run at compile time automatically
-[X] fix wasm build
 [] music
 [] sounds
+[] text display / UI
 [] animations that don't use Sprite (animating a float or vec)
+
+[x] switches
+[X] have png-to-pix run at compile time automatically
+[X] fix wasm build
+[x] scene transitions / moveable camera
+[x] moveable objects
 
 BUGS
 [x] button sprites aren't activated by non-player collisions

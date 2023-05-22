@@ -2,9 +2,6 @@ use std::{iter, io::BufRead};
 
 use wgpu::util::DeviceExt;
 
-use cgmath::prelude::*;
-
-
 #[cfg(target_arch="wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -39,7 +36,7 @@ impl Vertex {
     }
 }
 
-const SPRITE_COUNT: u8 = 10;
+const SPRITE_COUNT: u8 = 41;
 
 const SCREEN_WIDTH: u32 = 128;
 const SCREEN_HEIGHT: u32= 112;
@@ -602,7 +599,7 @@ impl Chroma {
             );
     }
 
-    pub fn add_tile(&mut self, x: f32, y: f32, index: u32, flip_x: bool) {
+    pub fn add_tile(&mut self, x: f32, y: f32, index: u32) {
         self.instances.push(
             Instance { 
                 position: cgmath::Vector2 {

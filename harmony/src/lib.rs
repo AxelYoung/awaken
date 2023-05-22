@@ -4,8 +4,7 @@ mod macros;
 
 pub struct World {
     entities_count: usize,
-    component_vecs: Vec<Box<dyn ComponentVec>>,
-    pub player: Option<usize>
+    component_vecs: Vec<Box<dyn ComponentVec>>
 }
 
 impl World {
@@ -13,7 +12,6 @@ impl World {
         Self {
             entities_count: 0,
             component_vecs: Vec::new(),
-            player: None
         }
     }
 
