@@ -1,5 +1,4 @@
 use harmony::*;
-use chroma::*;
 
 use super::{Game, SCREEN_WIDTH, SCREEN_HEIGHT};
 use super::common::Position;
@@ -7,7 +6,6 @@ use super::math::Vec2;
 use super::physics::{Collider, Velocity};
 use super::render::{Sprite, SPRITE_SIZE};
 use super::animation::*;
-use super::input::Input;
 use super::map_gen::ROOM_HEIGHT;
 
 pub struct Player {

@@ -1,5 +1,4 @@
 use harmony::*;
-use chroma::*;
 
 use super::Game;
 use super::common::Position;

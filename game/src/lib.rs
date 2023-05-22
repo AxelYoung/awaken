@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use std::vec;
 
 use harmony::*;
@@ -37,7 +39,6 @@ const WINDOW_HEIGHT: u32 = SCREEN_HEIGHT * SCREEN_SCALE;
 pub struct Game{ 
     player: usize,
     timer: usize,
-    loop_color: usize,
     clones: [usize; 5],
     clone_commands: [Vec<(math::Vec2, u128)>; 5],
     current_clone: usize,
@@ -54,7 +55,6 @@ impl Game {
         Self {
             player: 0, 
             timer: 0, 
-            loop_color: 0, 
             clones: [0;5], 
             clone_commands: [vec![], vec![], vec![], vec![], vec![]], 
             current_clone: 0, 

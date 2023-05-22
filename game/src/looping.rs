@@ -1,8 +1,6 @@
-use chroma::*;
 use harmony::*;
 
 use super::{Game, SCREEN_WIDTH, SCREEN_HEIGHT};
-use super::input::Input;
 use super::common::Position;
 use super::physics::{Collider, Velocity};
 use super::animation::{Animator, Animation, AnimationFrame};
@@ -55,8 +53,8 @@ fn replay_clones(game: &mut Game) {
     
         let dir = game.clone_commands[0][x].0;
     
-        iterate_entities!(game.world, (Clone, Velocity, Animator, Sprite),
-            |_, velocity: &mut Velocity, animator: &mut Animator, sprite: &mut Sprite| {
+        iterate_entities!(game.world, (Clone, Velocity, Animator),
+            |_, velocity: &mut Velocity, animator: &mut Animator| {
     
                 let dir_x = dir.x;
                 let dir_y = dir.y; 
