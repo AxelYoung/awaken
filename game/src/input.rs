@@ -29,4 +29,14 @@ impl Input {
             loop_pressed
         }
     }
+
+    pub fn none() -> Self {
+        Self {
+            up_pressed: false,
+            down_pressed: false,
+            left_pressed: false,
+            right_pressed: false,
+            loop_pressed: false
+        }
+    }
 }

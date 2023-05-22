@@ -1,5 +1,6 @@
 use chroma::*;
 use harmony::*;
+use super::Game;
 use super::common::Position;
 
 pub const SPRITE_SIZE: u16 = 8;
@@ -18,18 +19,18 @@ impl Sprite {
     }
 }
 
-pub fn draw(world: &mut World, chroma: &mut Chroma){
-    chroma.clear();
+pub fn draw(game: &mut Game){
+    game.chroma.clear();
 
-    draw_entity(world, chroma);
+    draw_entity(game);
 
-    chroma.render();
+    game.chroma.render();
 }
 
-fn draw_entity(world: &mut World, chroma: &mut Chroma) {
-    iterate_entities!(world, [Position, Sprite], 
+fn draw_entity(game: &mut Game) {
+    iterate_entities!(game.world, [Position, Sprite], 
         |position: &Position, sprite : &Sprite| {
-            chroma.add_tile(position.x, position.y, sprite.index);
+            game.chroma.add_tile(position.x, position.y, sprite.index);
         }
     );
 }

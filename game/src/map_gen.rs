@@ -1,4 +1,6 @@
 use harmony::*;
+use crate::Game;
+
 use super::common::Position;
 use super::math::Vec2;
 use super::buttons::Button;
@@ -52,7 +54,7 @@ const START_HALL: [[u8;ROOM_WIDTH as usize];ROOM_HEIGHT as usize] = [
     [0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0]
 ];
 
-pub fn create(world: &mut World) {
+pub fn create(game: &mut Game) {
     for room_x in 0..MAP_WIDTH as usize {
         for room_y in 0..MAP_HEIGHT as usize {
             for x in 0..ROOM_WIDTH as usize {
@@ -65,45 +67,45 @@ pub fn create(world: &mut World) {
                     let position = Position::new(
                         (x as f32 * SPRITE_SIZE as f32) + (room_x as u8 * ROOM_WIDTH * SPRITE_SIZE as u8) as f32, 
                         (((ROOM_HEIGHT - 1) as f32 - y as f32) * SPRITE_SIZE as f32) - (room_y as u8 * ROOM_HEIGHT * SPRITE_SIZE as u8) as f32);
-                    let e = world.new_entity();
-                    world.add_component_to_entity(e, sprite);
-                    world.add_component_to_entity(e, position);
+                    let e = game.world.new_entity();
+                    game.world.add_component_to_entity(e, sprite);
+                    game.world.add_component_to_entity(e, position);
                     if MAP[room_y][room_x][y][x] == 0 {
-                        world.add_component_to_entity(e, Collider{});
+                        game.world.add_component_to_entity(e, Collider{});
                     }
                 }
             }
         } 
     } 
 
-    let e = world.new_entity();
+    let e = game.world.new_entity();
 
-    world.add_component_to_entity(e, Position::new(8.0 * SPRITE_SIZE as f32, 0.0));
-    world.add_component_to_entity(e, Transition {dir: Vec2::new(0.0, 1.0), collided: false});
+    game.world.add_component_to_entity(e, Position::new(8.0 * SPRITE_SIZE as f32, 0.0));
+    game.world.add_component_to_entity(e, Transition {dir: Vec2::new(0.0, 1.0), collided: false});
 
-    let gate_1 = world.new_entity();
+    let gate_1 = game.world.new_entity();
 
-    world.add_component_to_entity(gate_1, Position::new(8.0 * SPRITE_SIZE as f32, -1.0 * SPRITE_SIZE as f32));
-    world.add_component_to_entity(gate_1, Sprite::new(37));
-    world.add_component_to_entity(gate_1, Collider {});
+    game.world.add_component_to_entity(gate_1, Position::new(8.0 * SPRITE_SIZE as f32, -1.0 * SPRITE_SIZE as f32));
+    game.world.add_component_to_entity(gate_1, Sprite::new(37));
+    game.world.add_component_to_entity(gate_1, Collider {});
 
-    let gate_2 = world.new_entity();
+    let gate_2 = game.world.new_entity();
 
-    world.add_component_to_entity(gate_2, Position::new(7.0 * SPRITE_SIZE as f32, -1.0 * SPRITE_SIZE as f32));
-    world.add_component_to_entity(gate_2, Sprite::new(37));
-    world.add_component_to_entity(gate_2, Collider {});
+    game.world.add_component_to_entity(gate_2, Position::new(7.0 * SPRITE_SIZE as f32, -1.0 * SPRITE_SIZE as f32));
+    game.world.add_component_to_entity(gate_2, Sprite::new(37));
+    game.world.add_component_to_entity(gate_2, Collider {});
 
-    let button = world.new_entity();
+    let button = game.world.new_entity();
 
-    world.add_component_to_entity(button, Position::new(4.0 * SPRITE_SIZE as f32, -5.0 * SPRITE_SIZE as f32));
-    world.add_component_to_entity(button, Sprite::new(38));
-    world.add_component_to_entity(button, Button { gate_ids: vec![gate_1, gate_2], collided: None});
+    game.world.add_component_to_entity(button, Position::new(4.0 * SPRITE_SIZE as f32, -5.0 * SPRITE_SIZE as f32));
+    game.world.add_component_to_entity(button, Sprite::new(38));
+    game.world.add_component_to_entity(button, Button { gate_ids: vec![gate_1, gate_2], collided: None});
 
-    let push_box = world.new_entity();
+    let push_box = game.world.new_entity();
 
-    world.add_component_to_entity(push_box, Position::new(12.0 * SPRITE_SIZE as f32, -9.0 * SPRITE_SIZE as f32));
-    world.add_component_to_entity(push_box, Sprite::new(40));
-    world.add_component_to_entity(push_box, Velocity::new(0.0, 0.0));
-    world.add_component_to_entity(push_box, Collider{});
-    world.add_component_to_entity(push_box, Pushable{});
+    game.world.add_component_to_entity(push_box, Position::new(12.0 * SPRITE_SIZE as f32, -9.0 * SPRITE_SIZE as f32));
+    game.world.add_component_to_entity(push_box, Sprite::new(40));
+    game.world.add_component_to_entity(push_box, Velocity::new(0.0, 0.0));
+    game.world.add_component_to_entity(push_box, Collider{});
+    game.world.add_component_to_entity(push_box, Pushable{});
 }

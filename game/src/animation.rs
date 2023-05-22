@@ -1,4 +1,6 @@
 use harmony::*;
+use crate::Game;
+
 use super::render::Sprite;
 
 pub struct Animator {
@@ -40,15 +42,15 @@ impl AnimationFrame {
     }
 }
 
-pub fn update(world: &mut World, delta_time: &u128) {
-    animate(world, delta_time);
+pub fn update(game: &mut Game) {
+    animate(game);
 }
 
-fn animate(world: &mut World, delta_time: &u128) {
-    iterate_entities!(world, (Animator, Sprite), 
+fn animate(game: &mut Game) {
+    iterate_entities!(game.world, (Animator, Sprite), 
         |animator: &mut Animator, sprite: &mut Sprite| {
             if animator.playing {
-                animator.time += delta_time;
+                animator.time += game.delta_time;
                 if animator.time > animator.current_frame().length {
                     animator.time = 0;
                     animator.step();

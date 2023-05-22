@@ -3,9 +3,9 @@ use std::vec;
 use harmony::*;
 use chroma::*;
 
-use winit::{event_loop::{EventLoop, ControlFlow}, 
-            window::WindowBuilder, dpi::PhysicalSize, 
-            event::VirtualKeyCode};
+use input::Input;
+use winit::{event_loop::EventLoop, 
+            window::{WindowBuilder, Window}, dpi::PhysicalSize};
 
 use winit_input_helper::WinitInputHelper;
 
@@ -26,6 +26,13 @@ mod render;
 mod transitions;
 
 const TICK_DURATION: u128 = 20;
+const SCREEN_WIDTH: u32 = 128;
+const SCREEN_HEIGHT: u32 = 112;
+
+const SCREEN_SCALE: u32 = 8;
+
+const WINDOW_WIDTH: u32 = SCREEN_WIDTH * SCREEN_SCALE;
+const WINDOW_HEIGHT: u32 = SCREEN_HEIGHT * SCREEN_SCALE;
 
 pub struct Game{ 
     player: usize,
@@ -35,16 +42,31 @@ pub struct Game{
     clone_commands: [Vec<(math::Vec2, u128)>; 5],
     current_clone: usize,
     time: u128,
-    clone_count: usize
+    clone_count: usize,
+    pub world: World,
+    pub chroma: Chroma,
+    pub input: Input,
+    delta_time: u128
 }
 
-const SCREEN_WIDTH: u32 = 128;
-const SCREEN_HEIGHT: u32 = 112;
-
-const SCREEN_SCALE: u32 = 8;
-
-const WINDOW_WIDTH: u32 = SCREEN_WIDTH * SCREEN_SCALE;
-const WINDOW_HEIGHT: u32 = SCREEN_HEIGHT * SCREEN_SCALE;
+impl Game {
+    pub fn new(window: &Window) -> Self {
+        Self {
+            player: 0, 
+            timer: 0, 
+            loop_color: 0, 
+            clones: [0;5], 
+            clone_commands: [vec![], vec![], vec![], vec![], vec![]], 
+            current_clone: 0, 
+            time: 0, 
+            clone_count: 0, 
+            world: World::new(),
+            chroma: pollster::block_on(Chroma::new(SCREEN_WIDTH, SCREEN_HEIGHT, &window)),
+            input: Input::none(),
+            delta_time: 0
+        }
+    }
+}
 
 #[cfg_attr(target_arch="wasm32", wasm_bindgen(start))]
 pub fn run() {
@@ -88,25 +110,15 @@ pub fn run() {
             .expect("Couldn't append canvas to document body.");
     }
 
-    // Renderer
+    let mut game = Game::new(&window);
 
-    let mut chroma =  pollster::block_on(Chroma::new(SCREEN_WIDTH, SCREEN_HEIGHT, &window));
+    map_gen::create(&mut game);
 
-    // ECS
-    
-    let mut game = Game { player: 0, timer: 0, loop_color: 0, clones: [0;5], clone_commands: [vec![], vec![], vec![], vec![], vec![]], current_clone: 0, time: 0, clone_count: 0};
+    looping::create_ui(&mut game);
 
-    let mut world = World::new();
-
-    map_gen::create(&mut world);
-
-    looping::create_ui(&mut world, &mut game);
-
-    player::create(&mut world, &mut chroma, &mut game);
+    player::create(&mut game);
 
     let mut winit = WinitInputHelper::new();
-
-    // EVENT LOOP
     
     let mut last_tick = instant::Instant::now();
     let mut tick_accumultor: u128 = 0;
@@ -114,40 +126,39 @@ pub fn run() {
     event_loop.run(move |event, _, control_flow| {
         if winit.update(&event) {
             let current_time = instant::Instant::now();
-            let delta_time = current_time.duration_since(last_tick);
+            game.delta_time = current_time.duration_since(last_tick).as_millis();
             last_tick = current_time;
 
-            game.time += delta_time.as_millis();
+            game.time += game.delta_time;
+            game.input = input::Input::new(&mut winit, control_flow);
 
-            let input = input::Input::new(&mut winit, control_flow);
+            update(&mut game);
 
-            update(&mut world, &mut chroma, &input, &delta_time.as_millis(), &mut game);
-
-            fixed_tick_manager(&mut world, &mut chroma, &delta_time.as_millis(), &mut tick_accumultor, &mut game);
+            fixed_tick_manager(&mut game, &mut tick_accumultor);
         
-            render::draw(&mut world, &mut chroma);
+            render::draw(&mut game);
         }
     });
 }
 
-fn update(world: &mut World, chroma: &mut Chroma, input: &input::Input, delta_time: &u128, game: &mut Game) {
-    animation::update(world, delta_time);
-    player::update(world, input, game);
-    looping::update(world, chroma, input, game, delta_time);
+fn update(game: &mut Game) {
+    animation::update(game);
+    player::update(game);
+    looping::update(game);
 }
 
-fn fixed_tick_manager(world: &mut World, chroma: &mut Chroma, delta_time: &u128, tick_accumulator: &mut u128, game: &mut Game) {
-    *tick_accumulator += delta_time;
+fn fixed_tick_manager(game: &mut Game, tick_accumulator: &mut u128) {
+    *tick_accumulator += game.delta_time;
 
     while *tick_accumulator >= TICK_DURATION {
-        fixed_update(world, chroma, game);
+        fixed_update(game);
         *tick_accumulator -= TICK_DURATION;
     }
 }
 
-fn fixed_update(world: &mut World, chroma: &mut Chroma, game: &mut Game) {
-    pushables::fixed_update(world);
-    buttons::fixed_update(world);
-    transitions::fixed_update(world, chroma, game);
-    physics::fixed_update(world, chroma, game);
+fn fixed_update(game: &mut Game) {
+    pushables::fixed_update(game);
+    buttons::fixed_update(game);
+    transitions::fixed_update(game);
+    physics::fixed_update(game);
 }

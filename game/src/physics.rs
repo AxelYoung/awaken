@@ -30,22 +30,22 @@ impl std::ops::DerefMut for Velocity {
 
 pub struct Collider{}
 
-pub fn fixed_update(world: &mut World, chroma: &mut Chroma, game: &mut Game) {
-    check_collisions(world);
-    move_entity(world);
-    velocity_drag(world);
+pub fn fixed_update(game: &mut Game) {
+    check_collisions(game);
+    move_entity(game);
+    velocity_drag(game);
 }
 
-fn move_entity(world: &mut World) {
-    iterate_entities!(world, [Velocity], (Position), 
+fn move_entity(game: &mut Game) {
+    iterate_entities!(game.world, [Velocity], (Position), 
         |velocity: &Velocity, position: &mut Position| {
             position.x += velocity.x;
             position.y += velocity.y;
     });
 }
 
-fn velocity_drag(world: &mut World) {
-    iterate_entities!(world, (Velocity), 
+fn velocity_drag(game: &mut Game) {
+    iterate_entities!(game.world, (Velocity), 
         |velocity: &mut Velocity| {
             velocity.x -= velocity.x * 0.2;
             velocity.y -= velocity.y * 0.2;
@@ -53,10 +53,10 @@ fn velocity_drag(world: &mut World) {
     );
 }
 
-fn check_collisions(world: &mut World) {
-    iterate_entities!(world, [Position, Collider], (Velocity), 
+fn check_collisions(game: &mut Game) {
+    iterate_entities!(game.world, [Position, Collider], (Velocity), 
         |position_a: &Position, _, velocity: &mut Velocity| {            
-            iterate_entities!(world, [Position, Collider], 
+            iterate_entities!(game.world, [Position, Collider], 
                 |position_b: &Position, _| {
                     if position_a != position_b {
                         let next_pos = Vec2::new(position_a.x + velocity.x, position_a.y+ velocity.y);

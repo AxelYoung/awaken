@@ -16,15 +16,15 @@ pub struct Player {
     pub dir: Vec2
 }
 
-pub fn create(world: &mut World, chroma: &mut Chroma, game: &mut Game) {
-    let e = world.new_entity();
+pub fn create(game: &mut Game) {
+    let e = game.world.new_entity();
 
-    world.add_component_to_entity(e, Sprite::new(0));
-    world.add_component_to_entity(e, Position::new(SCREEN_WIDTH as f32 / 2.0, (SCREEN_HEIGHT as f32 / 2.0) - (ROOM_HEIGHT as u16 * SPRITE_SIZE) as f32));
-    world.add_component_to_entity(e, Velocity::new(0.0, 0.0));
-    world.add_component_to_entity(e, Player {speed: 0.8, active: true, dir: Vec2::new(0.0, 0.0)});
-    world.add_component_to_entity(e, Collider{});
-    world.add_component_to_entity(e, Animator{
+    game.world.add_component_to_entity(e, Sprite::new(0));
+    game.world.add_component_to_entity(e, Position::new(SCREEN_WIDTH as f32 / 2.0, (SCREEN_HEIGHT as f32 / 2.0) - (ROOM_HEIGHT as u16 * SPRITE_SIZE) as f32));
+    game.world.add_component_to_entity(e, Velocity::new(0.0, 0.0));
+    game.world.add_component_to_entity(e, Player {speed: 0.8, active: true, dir: Vec2::new(0.0, 0.0)});
+    game.world.add_component_to_entity(e, Collider{});
+    game.world.add_component_to_entity(e, Animator{
         animation: Animation {
             frames: vec![AnimationFrame::new(1, 75), AnimationFrame::new(0, 75)],
             r#loop: true
@@ -34,28 +34,28 @@ pub fn create(world: &mut World, chroma: &mut Chroma, game: &mut Game) {
         playing: false
     });
 
-    chroma.update_camera(0.0, 4.0);
+    game.chroma.update_camera(0.0, 4.0);
 
     game.player = e;
 }
 
-pub fn update(world: &mut World, input: &Input, game: &mut Game) {
-    set_dir(world, input, game);
+pub fn update(game: &mut Game) {
+    set_dir(game);
 }
 
-fn set_dir(world: &mut World, input: &Input, game: &mut Game) {
-    iterate_entities!(world, (Player, Velocity, Animator, Sprite),
+fn set_dir(game: &mut Game) {
+    iterate_entities!(game.world, (Player, Velocity, Animator, Sprite),
         |moveable: &mut Player, velocity: &mut Velocity, animator: &mut Animator, sprite: &mut Sprite| {
             let dir_x : f32 = 
-            if input.right_pressed {
+            if game.input.right_pressed {
                 sprite.flip_x = false;
                  1.0 
-            } else if input.left_pressed {
+            } else if game.input.left_pressed {
                 sprite.flip_x = true;
                  -1.0 
             } else { 0.0 };
 
-            let dir_y : f32 = if input.up_pressed { 1.0 } else if input.down_pressed { -1.0 } else { 0.0 };
+            let dir_y : f32 = if game.input.up_pressed { 1.0 } else if game.input.down_pressed { -1.0 } else { 0.0 };
         
             let magnitude = dir_x.abs() + dir_y.abs();
         
