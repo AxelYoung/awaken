@@ -2,12 +2,12 @@ use harmony::*;
 
 use super::Game;
 use super::common::Position;
-use super::math::Vec2;
+use super::math::Vec2i;
 use super::physics::{Bounds, check_collision};
 use super::render::{SPRITE_SIZE};
 
 pub struct Transition {
-    pub dir: Vec2,
+    pub dir: Vec2i,
     pub collided: bool
 }
 
@@ -24,7 +24,7 @@ fn check_transitions_collision(game: &mut Game) {
             if check_collision(player_position, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}, position_b.value, Bounds{right: SPRITE_SIZE as f32, bottom: 0.1 as f32}) {
                 if !transition.collided {
                     transition.collided = true;
-                    if transition.dir.x == 0.0 {
+                    if transition.dir.x == 0 {
                         let dir = if player_position.y + 4.0 > position_b.y { -1.0 } else { 1.0 };
                         game.chroma.update_camera(game.chroma.camera.x, game.chroma.camera.y - (dir * 4.0));
                     } else {

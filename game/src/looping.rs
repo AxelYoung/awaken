@@ -1,12 +1,14 @@
 use harmony::*;
 
+use crate::render::SPRITE_CENTER;
+
 use super::{Game, SCREEN_WIDTH, SCREEN_HEIGHT};
 use super::common::Position;
 use super::physics::{Collider, Velocity};
 use super::animation::{Animator, Animation, AnimationFrame};
 use super::render::{Sprite, SPRITE_SIZE};
 use super::player::Player;
-use super::map_gen::ROOM_HEIGHT;
+use super::map_gen::ROOM_TILE_HEIGHT;
 
 struct Timer {
     first_digit: usize,
@@ -19,18 +21,18 @@ struct Clone { }
 pub fn create_ui(game: &mut Game) {
     let loop_color = game.world.new_entity();
 
-    game.world.add_component_to_entity(loop_color, Position::new(0.0, -14.0 * SPRITE_SIZE as f32));
-    game.world.add_component_to_entity(loop_color, Sprite::new(20));
+    game.world.add_component_to_entity(loop_color, Position::new(SPRITE_CENTER, -14.0 * SPRITE_SIZE as f32 + SPRITE_CENTER));
+    game.world.add_component_to_entity(loop_color, Sprite::new(20, 100));
 
     let first_digit = game.world.new_entity();
 
-    game.world.add_component_to_entity(first_digit, Position::new(1.0 * SPRITE_SIZE as f32, -14.0 * SPRITE_SIZE as f32));
-    game.world.add_component_to_entity(first_digit, Sprite::new(25));
+    game.world.add_component_to_entity(first_digit, Position::new(1.0 * SPRITE_SIZE as f32 + SPRITE_CENTER, -14.0 * SPRITE_SIZE as f32 + SPRITE_CENTER));
+    game.world.add_component_to_entity(first_digit, Sprite::new(25, 100));
 
     let second_digit = game.world.new_entity();
 
-    game.world.add_component_to_entity(second_digit, Position::new(2.0 * SPRITE_SIZE as f32, -14.0 * SPRITE_SIZE as f32));
-    game.world.add_component_to_entity(second_digit, Sprite::new(25));
+    game.world.add_component_to_entity(second_digit, Position::new(2.0 * SPRITE_SIZE as f32 + SPRITE_CENTER, -14.0 * SPRITE_SIZE as f32 + SPRITE_CENTER));
+    game.world.add_component_to_entity(second_digit, Sprite::new(25, 100));
 
     let timer = game.world.new_entity();
 
@@ -85,8 +87,8 @@ fn restart_loop(game: &mut Game) {
         game.world.remove_component_from_entity::<Collider>(game.player);
         let clone = game.world.new_entity();
         game.clones[0] = clone;
-        game.world.add_component_to_entity(clone, Sprite::new(0));
-        game.world.add_component_to_entity(clone, Position::new(SCREEN_WIDTH as f32 / 2.0, (SCREEN_HEIGHT as f32 / 2.0) - (ROOM_HEIGHT as u16 * SPRITE_SIZE) as f32));
+        game.world.add_component_to_entity(clone, Sprite::new(0, 50));
+        game.world.add_component_to_entity(clone, Position::new(SCREEN_WIDTH as f32 / 2.0, (SCREEN_HEIGHT as f32 / 2.0) - (ROOM_TILE_HEIGHT * SPRITE_SIZE) as f32));
         game.world.add_component_to_entity(clone, Velocity::new(0.0, 0.0));
         game.world.add_component_to_entity(clone, Collider{});
         game.world.add_component_to_entity(clone, Clone{});

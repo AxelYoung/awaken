@@ -1,6 +1,6 @@
 use super::math::Vec2;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub struct Position {
    pub value: Vec2
 }

@@ -28,9 +28,9 @@ mod render;
 mod transitions;
 
 const TICK_DURATION: u128 = 20;
+
 const SCREEN_WIDTH: u32 = 128;
 const SCREEN_HEIGHT: u32 = 112;
-
 const SCREEN_SCALE: u32 = 8;
 
 const WINDOW_WIDTH: u32 = SCREEN_WIDTH * SCREEN_SCALE;
@@ -70,7 +70,6 @@ impl Game {
 
 #[cfg_attr(target_arch="wasm32", wasm_bindgen(start))]
 pub fn run() {
-    // CREATE EVENT LOOP
 
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
@@ -82,8 +81,6 @@ pub fn run() {
     }    
 
     let event_loop = EventLoop::new();
-
-    // CREATE WINDOW
 
     let window = WindowBuilder::new()
         .with_title("Awaken")

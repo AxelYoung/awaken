@@ -6,7 +6,7 @@ use super::math::Vec2;
 use super::physics::{Collider, Velocity};
 use super::render::{Sprite, SPRITE_SIZE};
 use super::animation::*;
-use super::map_gen::ROOM_HEIGHT;
+use super::map_gen::ROOM_TILE_HEIGHT;
 
 pub struct Player {
     pub speed: f32,
@@ -17,8 +17,8 @@ pub struct Player {
 pub fn create(game: &mut Game) {
     let e = game.world.new_entity();
 
-    game.world.add_component_to_entity(e, Sprite::new(0));
-    game.world.add_component_to_entity(e, Position::new(SCREEN_WIDTH as f32 / 2.0, (SCREEN_HEIGHT as f32 / 2.0) - (ROOM_HEIGHT as u16 * SPRITE_SIZE) as f32));
+    game.world.add_component_to_entity(e, Sprite::new(0, 50));
+    game.world.add_component_to_entity(e, Position::new(SCREEN_WIDTH as f32 / 2.0, (SCREEN_HEIGHT as f32 / 2.0) - (ROOM_TILE_HEIGHT* SPRITE_SIZE) as f32));
     game.world.add_component_to_entity(e, Velocity::new(0.0, 0.0));
     game.world.add_component_to_entity(e, Player {speed: 0.8, active: true, dir: Vec2::new(0.0, 0.0)});
     game.world.add_component_to_entity(e, Collider{});

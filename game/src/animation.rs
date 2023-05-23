@@ -43,20 +43,19 @@ impl AnimationFrame {
 }
 
 pub fn update(game: &mut Game) {
-    animate(game);
+    animate_entities(game);
 }
 
-fn animate(game: &mut Game) {
+fn animate_entities(game: &mut Game) {
     iterate_entities!(game.world, (Animator, Sprite), 
-        |animator: &mut Animator, sprite: &mut Sprite| {
-            if animator.playing {
-                animator.time += game.delta_time;
-                if animator.time > animator.current_frame().length {
-                    animator.time = 0;
-                    animator.step();
-                    sprite.index = animator.current_frame().sprite + if sprite.flip_x {2} else {0};
-                }
+    |animator: &mut Animator, sprite: &mut Sprite| {
+        if animator.playing {
+            animator.time += game.delta_time;
+            if animator.time > animator.current_frame().length {
+                animator.time = 0;
+                animator.step();
+                sprite.index = animator.current_frame().sprite;
             }
         }
-    );
+    });
 }

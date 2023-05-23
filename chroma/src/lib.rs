@@ -43,19 +43,19 @@ const SCREEN_HEIGHT: u32= 112;
 
 const VERTICES: &[Vertex] = &[
     Vertex {
-        position: [0.0 / SCREEN_WIDTH as f32 - 2.0, 32.0 / SCREEN_HEIGHT as f32 - 2.0, 0.0],
+        position: [-16.0 / SCREEN_WIDTH as f32 - 2.0, 16.0 / SCREEN_HEIGHT as f32 - 2.0, 0.0],
         tex_coords: [0.0, 0.0],
     }, 
     Vertex {
-        position: [0.0 / SCREEN_WIDTH as f32 - 2.0, 0.0 / SCREEN_HEIGHT as f32 - 2.0, 0.0],
+        position: [-16.0 / SCREEN_WIDTH as f32 - 2.0, -16.0 / SCREEN_HEIGHT as f32 - 2.0, 0.0],
         tex_coords: [0.0, 1.0],
     }, 
     Vertex {
-        position: [32.0 / SCREEN_WIDTH as f32 - 2.0, 0.0 / SCREEN_HEIGHT as f32 - 2.0, 0.0],
+        position: [16.0 / SCREEN_WIDTH as f32 - 2.0, -16.0 / SCREEN_HEIGHT as f32 - 2.0, 0.0],
         tex_coords: [1.0 / SPRITE_COUNT as f32, 1.0],
     }, 
     Vertex {
-        position: [32.0 / SCREEN_WIDTH as f32 - 2.0, 32.0 / SCREEN_HEIGHT as f32 - 2.0, 0.0],
+        position: [16.0 / SCREEN_WIDTH as f32 - 2.0, 16.0 / SCREEN_HEIGHT as f32 - 2.0, 0.0],
         tex_coords: [1.0 / SPRITE_COUNT as f32, 0.0],
     }, 
     // -2,-2 to 2,2 => 0,0 to 128, 112
@@ -85,7 +85,8 @@ pub struct Chroma {
     pub camera: Camera,
     camera_raw: CameraRaw,
     camera_buffer: wgpu::Buffer,
-    camera_bind_group: wgpu::BindGroup
+    camera_bind_group: wgpu::BindGroup,
+    depth_texture: texture::Texture
 }
 
 pub struct Camera {
@@ -149,6 +150,8 @@ impl Chroma {
         let (config, upscale_pipeline, upscale_vertex_buffer, upscale_bind_group, clip_rect) = 
         Chroma::create_upscale_renderer(&surface, &adapter, &device, window_size, &texture_view, pixel_width, pixel_height);
 
+        let depth_texture = texture::Texture::create_depth_texture(&device, pixel_width, pixel_height, "depth_texture");
+
         Self {
             device,
             queue,
@@ -174,7 +177,9 @@ impl Chroma {
             camera,
             camera_raw,
             camera_buffer,
-            camera_bind_group
+            camera_bind_group,
+
+            depth_texture
         }
     }
 
@@ -202,15 +207,22 @@ impl Chroma {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
+                            r: 0.0,
+                            g: 1.0,
+                            b: 0.0,
                             a: 1.0,
                         }),
                         store: true,
                     },
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
@@ -402,11 +414,17 @@ impl Chroma {
                     unclipped_depth: false,
                     conservative: false
                 },
-                depth_stencil: None,
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: texture::Texture::DEPTH_FORMAT,
+                    depth_write_enabled: true,
+                    depth_compare: wgpu::CompareFunction::Less, // 1.
+                    stencil: wgpu::StencilState::default(), // 2.
+                    bias: wgpu::DepthBiasState::default(),
+                }),
                 multisample: wgpu::MultisampleState {
                     count: 1,
                     mask: !0,
-                    alpha_to_coverage_enabled: false
+                    alpha_to_coverage_enabled: true
                 },
                 multiview: None
             }
@@ -574,7 +592,7 @@ impl Chroma {
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL
                 })]
             }),
@@ -599,12 +617,13 @@ impl Chroma {
             );
     }
 
-    pub fn add_tile(&mut self, x: f32, y: f32, index: u32) {
+    pub fn add_tile(&mut self, x: f32, y: f32, z: f32, index: u32) {
         self.instances.push(
             Instance { 
-                position: cgmath::Vector2 {
+                position: cgmath::Vector3 {
                     x: x * 4.0 / SCREEN_WIDTH as f32,
-                    y: y * 4.0 / SCREEN_HEIGHT as f32
+                    y: y * 4.0 / SCREEN_HEIGHT as f32,
+                    z
                 },
                 uv_offset: cgmath::Vector2 {
                     x: index as f32 / SPRITE_COUNT as f32,
@@ -684,14 +703,14 @@ impl ScalingMatrix {
 }
 
 struct Instance {
-    position: cgmath::Vector2<f32>,
+    position: cgmath::Vector3<f32>,
     uv_offset: cgmath::Vector2<f32> 
 }
 
 impl Instance {
     fn to_raw(&self) -> InstanceRaw {
         InstanceRaw {
-            model: [self.position.x, self.position.y, self.uv_offset.x, self.uv_offset.y]
+            model: [self.position.x, self.position.y, self.position.z, self.uv_offset.x, self.uv_offset.y]
         }
     }
 }
@@ -699,7 +718,7 @@ impl Instance {
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct InstanceRaw {
-    model: [f32; 4],
+    model: [f32; 5],
 }
 
 impl InstanceRaw {
@@ -712,10 +731,10 @@ impl InstanceRaw {
                 wgpu::VertexAttribute {
                     offset: 0,
                     shader_location: 5,
-                    format: wgpu::VertexFormat::Float32x2,
+                    format: wgpu::VertexFormat::Float32x3,
                 },
                 wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 2]>() as wgpu::BufferAddress,
+                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
                     shader_location: 6,
                     format: wgpu::VertexFormat::Float32x2,
                 },
