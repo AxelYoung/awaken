@@ -1,4 +1,5 @@
 use itertools::iproduct;
+use rand::{thread_rng, Rng};
 
 use crate::Game;
 
@@ -80,7 +81,6 @@ pub fn create(game: &mut Game) {
         0..ROOM_TILE_HEIGHT as usize);
 
     for (room_x, room_y, x, y) in map_loop {
-        
         let position = get_tile_position(room_x, room_y, x, y);
 
         match &MAP[room_y][room_x][y][x] {
@@ -155,12 +155,12 @@ fn create_transition(game: &mut Game, position: Position, dir: Vec2i) {
     let transition = game.world.new_entity();
 
     let offset_x = if dir.x == 0 { (SPRITE_SIZE as i16) / 2 }
-                    else if dir.x == 1 { (SPRITE_SIZE as i16) } 
+                    else if dir.x == 1 { SPRITE_SIZE as i16 } 
                     else { -(SPRITE_SIZE as i16) };
 
     let offset_y = if dir.y == 0 { -(SPRITE_SIZE as i16) / 2 } 
                     else if dir.y == -1 { -(SPRITE_SIZE as i16) } 
-                    else { (SPRITE_SIZE as i16) };
+                    else { SPRITE_SIZE as i16 };
 
     let position = Position::new(position.x + offset_x as f32, position.y + offset_y as f32);
 

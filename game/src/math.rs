@@ -44,5 +44,5 @@ pub struct Vec2i {
 }
 
 impl Vec2i {
-    pub fn new(x: i32, y: i32) -> Self { Self {x, y} }
+    //pub fn new(x: i32, y: i32) -> Self { Self {x, y} }
 }

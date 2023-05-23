@@ -6,7 +6,10 @@ use super::physics::{Collider, Bounds, Velocity, check_collision};
 use super::math::Vec2;
 use super::render::SPRITE_SIZE;
 
-pub struct Pushable { }
+pub struct Pushable { 
+
+}
+
 
 pub fn fixed_update(game: &mut Game) {
     check_pushable_collision(game);

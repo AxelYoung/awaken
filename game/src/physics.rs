@@ -54,20 +54,18 @@ fn velocity_drag(game: &mut Game) {
 
 fn check_collisions(game: &mut Game) {
     iterate_entities!(game.world, [Position, Collider], (Velocity), 
-        |position_a: &Position, _, velocity: &mut Velocity| {            
-            iterate_entities!(game.world, [Position, Collider], 
-                |position_b: &Position, _| {
-                    if position_a != position_b {
-                        let next_pos = Vec2::new(position_a.x + velocity.x, position_a.y+ velocity.y);
-                        if check_collision(next_pos, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}, position_b.value, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}) {
-                            velocity.x = 0.0;
-                            velocity.y = 0.0;
-                        }
-                    }
+    |position_a: &Position, _, velocity: &mut Velocity| {            
+        iterate_entities!(game.world, [Position, Collider], 
+        |position_b: &Position, _| {
+            if position_a != position_b {
+                let next_pos = Vec2::new(position_a.x + velocity.x, position_a.y+ velocity.y);
+                if check_collision(next_pos, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}, position_b.value, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}) {
+                    velocity.x = 0.0;
+                    velocity.y = 0.0;
                 }
-            );
-        }
-    );
+            }
+        });
+    });
 }
 
 pub fn check_collision(pos_a: Vec2, bounds_a: Bounds, pos_b: Vec2, bounds_b: Bounds) -> bool {

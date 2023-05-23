@@ -1,5 +1,4 @@
 use harmony::*;
-use crate::math::Vec2;
 
 use super::Game;
 use super::common::Position;

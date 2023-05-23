@@ -130,4 +130,3 @@ fn set_timer(game: &mut Game) {
     let second_sprite = game.world.get_component_from_entity_mut::<Sprite>(second_digit_id).unwrap();
     second_sprite.as_mut().unwrap().index = (second_digit + 25) as u32;
 }
-

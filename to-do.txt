@@ -1,13 +1,20 @@
-[] lighting system
-[] raycasting system
-[] trail renderer
-[] particles
-[] keys
 [] looping with timer
+[] keys
+[] hazard
+
 [] music
 [] sounds
+
+[] lighting system
+[] raycasting system
+
+[] trail renderer
+[] particles
+
 [] text display / UI
+
 [] animations that don't use Sprite (animating a float or vec)
+[] add components function (multiple components in one call)
 
 [x] switches
 [X] have png-to-pix run at compile time automatically
