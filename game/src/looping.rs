@@ -8,8 +8,6 @@ use super::common::Position;
 use super::physics::{Collider, Velocity};
 use super::animation::{Animator, Animation, AnimationFrame};
 use super::render::{Sprite, SPRITE_SIZE};
-use super::player::Player;
-use super::map_gen::ROOM_TILE_HEIGHT;
 
 struct Timer {
     first_digit: usize,
@@ -17,7 +15,10 @@ struct Timer {
     current_time: f32
 }
 
-struct Clone { }
+struct Clone { 
+    id: usize,
+    current_command: usize
+}
 
 pub fn create_ui(game: &mut Game) {
     let loop_color = game.world.new_entity();
@@ -50,59 +51,63 @@ pub fn update(game: &mut Game) {
 
 fn replay_clones(game: &mut Game) {
     if game.clone_count > 0 {
-        let mut x = 1;
-
-        while game.time > game.clone_commands[0][x].1 { x += 1 };
-    
-        let dir = game.clone_commands[0][x - 1].0;
-    
         iterate_entities!(game.world, (Clone, Velocity, Animator),
-            |_, velocity: &mut Velocity, animator: &mut Animator| {
+        |clone: &mut Clone, velocity: &mut Velocity, animator: &mut Animator| {
     
-                let dir_x = dir.x;
-                let dir_y = dir.y; 
+            if clone.current_command == game.clone_commands[clone.id].len() { return }
+
+            if game.time > game.clone_commands[clone.id][clone.current_command].1 {
+                clone.current_command += 1;
+            };
     
-                let magnitude = dir_x.abs() + dir_y.abs();
-            
-                let normalized_x = dir_x / magnitude;
-                let normalized_y = dir_y / magnitude;
+            let dir = game.clone_commands[clone.id][clone.current_command- 1].0;
     
-                if magnitude != 0.0 {
-                    velocity.x = normalized_x * 0.8;
-                    velocity.y = normalized_y * 0.8;
-                    animator.playing = true;
-                } else {
-                    animator.playing = false;
-                    animator.time = 0;
-                }
+            let dir_x = dir.x;
+            let dir_y = dir.y; 
+    
+            let magnitude = dir_x.abs() + dir_y.abs();
+        
+            let normalized_x = dir_x / magnitude;
+            let normalized_y = dir_y / magnitude;
+    
+            if magnitude != 0.0 {
+                velocity.x = normalized_x * 0.8;
+                velocity.y = normalized_y * 0.8;
+                animator.playing = true;
+            } else {
+                animator.playing = false;
+                animator.time = 0;
             }
-        );
+        });
     }
 }
 
 fn restart_loop(game: &mut Game) {
     if game.input.loop_pressed {
 
-        game.world.remove_component_from_entity::<Player>(game.player);
-        game.world.remove_component_from_entity::<Animator>(game.player);
-        game.world.remove_component_from_entity::<Sprite>(game.player);
-        game.world.remove_component_from_entity::<Collider>(game.player);
-
         iterate_entities!(game.world, [Pushable], (Position), 
         |pushable: &Pushable, position: &mut Position| {
             position.value = pushable.origin;
         });
 
+        if game.clone_count > 0 {
+            iterate_entities!(game.world, (Clone, Position), 
+            |clone: &mut Clone, position: &mut Position| {
+                position.value = game.clone_spawns[clone.id];
+                clone.current_command = 1;
+            });
+        }
+
         let clone = game.world.new_entity();
-        game.clones[0] = clone;
-        game.world.add_component_to_entity(clone, Sprite::new(0, 50));
-        game.world.add_component_to_entity(clone, Position::new(SCREEN_WIDTH as f32 / 2.0, (SCREEN_HEIGHT as f32 / 2.0) - (ROOM_TILE_HEIGHT * SPRITE_SIZE) as f32));
+        game.clones[game.clone_count] = clone;
+        game.world.add_component_to_entity(clone, Sprite::new(4 * game.clone_count as u32, 50));
+        game.world.add_component_to_entity(clone, Position {value: game.clone_spawns[game.clone_count]});
         game.world.add_component_to_entity(clone, Velocity::new(0.0, 0.0));
         game.world.add_component_to_entity(clone, Collider{});
-        game.world.add_component_to_entity(clone, Clone{});
+        game.world.add_component_to_entity(clone, Clone{id: game.clone_count, current_command: 1});
         game.world.add_component_to_entity(clone, Animator{
             animation: Animation {
-                frames: vec![AnimationFrame::new(1, 75), AnimationFrame::new(0, 75)],
+                frames: vec![AnimationFrame::new(1 + (4 * game.clone_count as u32), 75), AnimationFrame::new(4 * game.clone_count as u32, 75)],
                 r#loop: true
             },
             frame_index: 0,
@@ -111,6 +116,24 @@ fn restart_loop(game: &mut Game) {
         });
 
         game.clone_count += 1;
+        game.current_clone += 1;
+
+        game.world.get_component_from_entity_mut::<Position>(game.player)
+            .unwrap().as_mut().unwrap().value = game.clone_spawns[game.clone_count];
+
+        game.world.get_component_from_entity_mut::<Sprite>(game.player)
+            .unwrap().as_mut().unwrap().index = 4 * game.clone_count as u32;
+
+        game.world.get_component_from_entity_mut::<Animator>(game.player)
+            .unwrap().as_mut().unwrap().animation = Animation {
+                frames: vec![AnimationFrame::new(1 + (4 * game.clone_count as u32), 75), AnimationFrame::new(4 * game.clone_count as u32, 75)],
+                r#loop: true
+            };
+
+        let timer = game.world.get_component_from_entity_mut::<Timer>(game.timer).unwrap();
+        
+        timer.as_mut().unwrap().current_time = 30.0;
+
         game.time = 0;
     }
 }

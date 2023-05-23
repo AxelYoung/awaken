@@ -13,6 +13,8 @@ impl Vec2 {
         (dx * dx + dy * dy).sqrt()
     }
      */
+
+    pub fn zero() -> Self { Self { x: 0.0, y: 0.0 } }
 }
 
 impl std::ops::Mul<f32> for Vec2 {

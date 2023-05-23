@@ -14,11 +14,11 @@ pub struct Player {
     pub dir: Vec2
 }
 
-pub fn create(game: &mut Game) {
+pub fn create(game: &mut Game, clone: usize) {
     let e = game.world.new_entity();
 
     game.world.add_component_to_entity(e, Sprite::new(0, 50));
-    game.world.add_component_to_entity(e, Position::new(SCREEN_WIDTH as f32 / 2.0, (SCREEN_HEIGHT as f32 / 2.0) - (ROOM_TILE_HEIGHT* SPRITE_SIZE) as f32));
+    game.world.add_component_to_entity(e, Position {value: game.clone_spawns[clone]});
     game.world.add_component_to_entity(e, Velocity::new(0.0, 0.0));
     game.world.add_component_to_entity(e, Player {speed: 0.8, active: true, dir: Vec2::new(0.0, 0.0)});
     game.world.add_component_to_entity(e, Collider{});
@@ -68,7 +68,6 @@ fn set_dir(game: &mut Game) {
             if game.clone_commands[game.current_clone].len() == 0 ||
                 game.clone_commands[game.current_clone][game.clone_commands[game.current_clone].len() - 1].0 != moveable.dir {
                     game.clone_commands[game.current_clone].push((moveable.dir, game.time));
-                    println!("Added to clone commands, {:?}", game.clone_commands[game.current_clone]);
                 }
 
             if magnitude != 0.0 {

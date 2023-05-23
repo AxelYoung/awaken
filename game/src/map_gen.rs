@@ -30,13 +30,20 @@ enum Tile {
     SF,
     BT([Vec2i; 2]),
     PB,
-    TR(Vec2i)
+    TR(Vec2i),
+    PL(usize, u32)
 }
 
 use Tile::*;
 
 const ST : Tile = TR(Vec2i {x: 0, y: 1});
 const SB : Tile = BT([Vec2i {x: 7, y: 0}, Vec2i {x: 8, y: 0}]);
+
+const PN : Tile = PL(0, 41);
+const PG : Tile = PL(1, 42);
+const PY : Tile = PL(2, 43);
+const PR : Tile = PL(3, 44);
+const PP : Tile = PL(4, 45);
 
 const START_ROOM: &[&[Tile]] = &[
     &[SW,SW,SW,SW,SW,SW,SW,ST,SF,SW,SW,SW,SW,SW,SW,SW],
@@ -51,7 +58,7 @@ const START_ROOM: &[&[Tile]] = &[
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,PN,SF,SF,PG,SF,SF,PY,SF,SF,PR,SF,SF,PP,SF,SW],
     &[SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW]
 ];
 
@@ -94,9 +101,19 @@ pub fn create(game: &mut Game) {
                     
                 create_button(game, position, gate_1_position, gate_2_position)
              },
-            TR(dir) => { create_transition(game, position, *dir) }
+            TR(dir) => { create_transition(game, position, *dir) },
+            PL(clone, sprite) => { create_player_spawn(game, position, *clone, *sprite) }
         }
     }
+}
+
+fn create_player_spawn(game: &mut Game, position: Position, clone: usize, sprite: u32) {
+    let player_spawn = game.world.new_entity();
+
+    game.clone_spawns[clone] = position.value;
+
+    game.world.add_component_to_entity(player_spawn, position);
+    game.world.add_component_to_entity(player_spawn, Sprite::new(sprite, 0));
 }
 
 fn create_stone_floor(game: &mut Game, position: Position) {

@@ -36,7 +36,7 @@ impl Vertex {
     }
 }
 
-const SPRITE_COUNT: u8 = 41;
+const SPRITE_COUNT: u8 = 46;
 
 const SCREEN_WIDTH: u32 = 128;
 const SCREEN_HEIGHT: u32= 112;

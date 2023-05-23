@@ -6,6 +6,7 @@ use harmony::*;
 use chroma::*;
 
 use input::Input;
+use math::Vec2;
 use winit::{event_loop::EventLoop, 
             window::{WindowBuilder, Window}, dpi::PhysicalSize};
 
@@ -31,23 +32,27 @@ const TICK_DURATION: u128 = 20;
 
 const SCREEN_WIDTH: u32 = 128;
 const SCREEN_HEIGHT: u32 = 112;
-const SCREEN_SCALE: u32 = 8;
+const SCREEN_SCALE: u32 = 4;
 
 const WINDOW_WIDTH: u32 = SCREEN_WIDTH * SCREEN_SCALE;
 const WINDOW_HEIGHT: u32 = SCREEN_HEIGHT * SCREEN_SCALE;
 
 pub struct Game{ 
-    player: usize,
-    timer: usize,
-    clones: [usize; 5],
-    clone_commands: [Vec<(math::Vec2, u128)>; 5],
-    current_clone: usize,
-    time: u128,
-    clone_count: usize,
     pub world: World,
     pub chroma: Chroma,
     pub input: Input,
-    delta_time: u128
+
+    delta_time: u128,
+    time: u128,
+    timer: usize,
+
+    player: usize,
+
+    clones: [usize; 5],
+    clone_spawns: [Vec2; 5],
+    clone_commands: [Vec<(Vec2, u128)>; 5],
+    current_clone: usize,
+    clone_count: usize,
 }
 
 impl Game {
@@ -56,6 +61,7 @@ impl Game {
             player: 0, 
             timer: 0, 
             clones: [0;5], 
+            clone_spawns: [Vec2::zero(); 5],
             clone_commands: [vec![], vec![], vec![], vec![], vec![]], 
             current_clone: 0, 
             time: 0, 
@@ -112,7 +118,7 @@ pub fn run() {
 
     looping::create_ui(&mut game);
 
-    player::create(&mut game);
+    player::create(&mut game, 0);
 
     let mut winit = WinitInputHelper::new();
     
