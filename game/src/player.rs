@@ -68,6 +68,7 @@ fn set_dir(game: &mut Game) {
             if game.clone_commands[game.current_clone].len() == 0 ||
                 game.clone_commands[game.current_clone][game.clone_commands[game.current_clone].len() - 1].0 != moveable.dir {
                     game.clone_commands[game.current_clone].push((moveable.dir, game.time));
+                    println!("Added to clone commands, {:?}", game.clone_commands[game.current_clone]);
                 }
 
             if magnitude != 0.0 {

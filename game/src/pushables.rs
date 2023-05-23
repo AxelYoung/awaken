@@ -7,7 +7,7 @@ use super::math::Vec2;
 use super::render::SPRITE_SIZE;
 
 pub struct Pushable { 
-
+    pub origin: Vec2
 }
 
 

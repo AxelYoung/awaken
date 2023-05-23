@@ -1,5 +1,4 @@
 use itertools::iproduct;
-use rand::{thread_rng, Rng};
 
 use crate::Game;
 
@@ -124,7 +123,7 @@ fn create_push_block(game: &mut Game, position: Position) {
     game.world.add_component_to_entity(push_box, Sprite::new(40, 25));
     game.world.add_component_to_entity(push_box, Velocity::new(0.0, 0.0));
     game.world.add_component_to_entity(push_box, Collider{});
-    game.world.add_component_to_entity(push_box, Pushable{});
+    game.world.add_component_to_entity(push_box, Pushable{ origin: position.value });
 }
 
 fn create_button(game: &mut Game, position: Position, gate_1_position: Position, gate_2_position: Position) {

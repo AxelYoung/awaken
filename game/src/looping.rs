@@ -1,5 +1,6 @@
 use harmony::*;
 
+use crate::pushables::Pushable;
 use crate::render::SPRITE_CENTER;
 
 use super::{Game, SCREEN_WIDTH, SCREEN_HEIGHT};
@@ -49,11 +50,11 @@ pub fn update(game: &mut Game) {
 
 fn replay_clones(game: &mut Game) {
     if game.clone_count > 0 {
-        let mut x = 0;
+        let mut x = 1;
 
         while game.time > game.clone_commands[0][x].1 { x += 1 };
     
-        let dir = game.clone_commands[0][x].0;
+        let dir = game.clone_commands[0][x - 1].0;
     
         iterate_entities!(game.world, (Clone, Velocity, Animator),
             |_, velocity: &mut Velocity, animator: &mut Animator| {
@@ -81,10 +82,17 @@ fn replay_clones(game: &mut Game) {
 
 fn restart_loop(game: &mut Game) {
     if game.input.loop_pressed {
+
         game.world.remove_component_from_entity::<Player>(game.player);
         game.world.remove_component_from_entity::<Animator>(game.player);
         game.world.remove_component_from_entity::<Sprite>(game.player);
         game.world.remove_component_from_entity::<Collider>(game.player);
+
+        iterate_entities!(game.world, [Pushable], (Position), 
+        |pushable: &Pushable, position: &mut Position| {
+            position.value = pushable.origin;
+        });
+
         let clone = game.world.new_entity();
         game.clones[0] = clone;
         game.world.add_component_to_entity(clone, Sprite::new(0, 50));
@@ -101,6 +109,7 @@ fn restart_loop(game: &mut Game) {
             time: 0,
             playing: false
         });
+
         game.clone_count += 1;
         game.time = 0;
     }
