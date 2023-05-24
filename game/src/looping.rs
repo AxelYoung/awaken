@@ -1,5 +1,6 @@
 use harmony::*;
 
+use crate::map_gen::{ROOM_PIXEL_WIDTH, ROOM_PIXEL_HEIGHT};
 use crate::math::Vec2;
 use crate::pushables::Pushable;
 use crate::render::SPRITE_CENTER;
@@ -24,12 +25,15 @@ struct Clone {
 pub fn create_ui(game: &mut Game) {
     let first_digit = game.world.new_entity();
 
-    game.world.add_component_to_entity(first_digit, Position::new(SPRITE_CENTER, -14.0 * SPRITE_SIZE as f32 + SPRITE_CENTER));
+    game.world.add_component_to_entity(first_digit, 
+        Position::new(((game.chroma.camera.x / 4.0) * ROOM_PIXEL_WIDTH as f32) + SPRITE_CENTER, 
+        (game.chroma.camera.y / 4.0) + -14.0 * SPRITE_SIZE as f32 + SPRITE_CENTER));
     game.world.add_component_to_entity(first_digit, Sprite::new(25, 100));
 
     let second_digit = game.world.new_entity();
 
-    game.world.add_component_to_entity(second_digit, Position::new(SPRITE_SIZE as f32 + SPRITE_CENTER, -14.0 * SPRITE_SIZE as f32 + SPRITE_CENTER));
+    game.world.add_component_to_entity(second_digit, Position::new(((game.chroma.camera.x / 4.0) * ROOM_PIXEL_WIDTH as f32) + SPRITE_CENTER, 
+    (game.chroma.camera.y / 4.0) + -14.0 * SPRITE_SIZE as f32 + SPRITE_CENTER));
     game.world.add_component_to_entity(second_digit, Sprite::new(25, 100));
 
     let timer = game.world.new_entity();
@@ -177,4 +181,13 @@ fn set_timer(game: &mut Game) {
     first_sprite.as_mut().unwrap().index = (first_digit + 25) as u32;
     let second_sprite = game.world.get_component_from_entity_mut::<Sprite>(second_digit_id).unwrap();
     second_sprite.as_mut().unwrap().index = (second_digit + 25) as u32;
+
+    let first_position = game.world.get_component_from_entity_mut::<Position>(first_digit_id).unwrap().as_mut().unwrap();
+    first_position.value = Vec2::new(
+    ((-game.chroma.camera.x / 4.0) * ROOM_PIXEL_WIDTH as f32) + SPRITE_CENTER, 
+    ((-game.chroma.camera.y / 4.0) * ROOM_PIXEL_HEIGHT as f32) as f32 + SPRITE_CENTER);
+    let second_position = game.world.get_component_from_entity_mut::<Position>(second_digit_id).unwrap().as_mut().unwrap();
+    second_position.value = Vec2::new(
+        ((-game.chroma.camera.x / 4.0) * ROOM_PIXEL_WIDTH as f32) + SPRITE_SIZE as f32 + SPRITE_CENTER, 
+    ((-game.chroma.camera.y / 4.0) * ROOM_PIXEL_HEIGHT as f32) as f32 + SPRITE_CENTER);
 }

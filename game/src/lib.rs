@@ -17,6 +17,7 @@ use wasm_bindgen::prelude::*;
 
 mod animation;
 mod buttons;
+mod camera;
 mod common;
 mod input;
 mod looping;
@@ -26,7 +27,6 @@ mod player;
 mod math;
 mod pushables;
 mod render;
-mod transitions;
 
 const TICK_DURATION: u128 = 20;
 
@@ -146,6 +146,7 @@ pub fn run() {
 fn update(game: &mut Game) {
     animation::update(game);
     player::update(game);
+    camera::update(game);
     looping::update(game);
 }
 
@@ -161,6 +162,5 @@ fn fixed_tick_manager(game: &mut Game, tick_accumulator: &mut u128) {
 fn fixed_update(game: &mut Game) {
     pushables::fixed_update(game);
     buttons::fixed_update(game);
-    transitions::fixed_update(game);
     physics::fixed_update(game);
 }

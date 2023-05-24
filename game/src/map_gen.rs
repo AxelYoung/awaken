@@ -7,7 +7,6 @@ use super::math::{Vec2, Vec2i};
 use super::buttons::Button;
 use super::render::{Sprite, SPRITE_SIZE, SPRITE_CENTER};
 use super::physics::{Collider, Velocity};
-use super::transitions::Transition;
 use super::pushables::Pushable;
 
 pub const ROOM_TILE_WIDTH : u32 = 16;
@@ -31,17 +30,11 @@ enum Tile {
     SF,
     BT([Vec2i; 2]),
     PB,
-    TR(Vec2i),
     PL(usize, u32),
     EM
 }
 
 use Tile::*;
-
-const TN : Tile = TR(Vec2i {x: 0, y: 1});
-const TW : Tile = TR(Vec2i {x: -1, y: 0});
-const TE : Tile = TR(Vec2i {x: 1, y: 0});
-const TS : Tile = TR(Vec2i {x: 0, y: -1});
 
 const SB : Tile = BT([Vec2i {x: 7, y: 0}, Vec2i {x: 8, y: 0}]);
 
@@ -86,20 +79,20 @@ const START_ROOM: &[&[Tile]] = &[
 ];
 
 const START_HALL: &[&[Tile]] = &[
-    &[SW,SW,SW,SW,SW,SW,SW,TN,SF,SW,SW,SW,SW,SW,SW,SW],
+    &[SW,SW,SW,SW,SW,SW,SW,SF,SF,SW,SW,SW,SW,SW,SW,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[TW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,TE],
+    &[SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF],
     &[SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SW,SW,SW,SW,SW,SW,SW,TS,SF,SW,SW,SW,SW,SW,SW,SW]
+    &[SW,SW,SW,SW,SW,SW,SW,SF,SF,SW,SW,SW,SW,SW,SW,SW]
 ];
 
 const HALL_LEFT: &[&[Tile]] = &[
@@ -176,7 +169,6 @@ pub fn create(game: &mut Game) {
                     
                 create_button(game, position, gate_1_position, gate_2_position)
              },
-            TR(dir) => { create_transition(game, position, *dir) },
             PL(clone, sprite) => { create_player_spawn(game, position, *clone, *sprite) }
         }
     }
@@ -238,25 +230,6 @@ fn create_button(game: &mut Game, position: Position, gate_1_position: Position,
     game.world.add_component_to_entity(button, position);
     game.world.add_component_to_entity(button, Sprite::new(38, 10));
     game.world.add_component_to_entity(button, Button { gate_ids: vec![gate_1, gate_2], collided: None});
-}
-
-fn create_transition(game: &mut Game, position: Position, dir: Vec2i) {
-    create_stone_floor(game, position);
-
-    let transition = game.world.new_entity();
-
-    let offset_x = if dir.x == 0 { (SPRITE_SIZE as i16) / 2 }
-                    else if dir.x == 1 { SPRITE_SIZE as i16 } 
-                    else { -(SPRITE_SIZE as i16) };
-
-    let offset_y = if dir.y == 0 { -(SPRITE_SIZE as i16) / 2 } 
-                    else if dir.y == -1 { -(SPRITE_SIZE as i16) } 
-                    else { SPRITE_SIZE as i16 };
-
-    let position = Position::new(position.x + offset_x as f32, position.y + offset_y as f32);
-
-    game.world.add_component_to_entity(transition, position);
-    game.world.add_component_to_entity(transition, Transition {dir, collided: false});
 }
 
 fn get_tile_position(room_x: usize, room_y: usize, x: usize, y: usize) -> Position {
