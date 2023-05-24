@@ -1,5 +1,7 @@
 use harmony::*;
 
+use crate::pushables::Pushable;
+
 use super::{Game, SCREEN_WIDTH, SCREEN_HEIGHT};
 use super::common::Position;
 use super::math::Vec2;
@@ -22,6 +24,7 @@ pub fn create(game: &mut Game, clone: usize) {
     game.world.add_component_to_entity(e, Velocity::new(0.0, 0.0));
     game.world.add_component_to_entity(e, Player {speed: 0.8, active: true, dir: Vec2::new(0.0, 0.0)});
     game.world.add_component_to_entity(e, Collider{});
+    game.world.add_component_to_entity(e, Pushable { origin: Vec2::zero() });
     game.world.add_component_to_entity(e, Animator{
         animation: Animation {
             frames: vec![AnimationFrame::new(1, 75), AnimationFrame::new(0, 75)],
@@ -32,7 +35,7 @@ pub fn create(game: &mut Game, clone: usize) {
         playing: false
     });
 
-    game.chroma.update_camera(0.0, 4.0);
+    game.chroma.update_camera(-4.0, 8.0);
 
     game.player = e;
 }

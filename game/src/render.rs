@@ -3,7 +3,7 @@ use harmony::*;
 use super::Game;
 use super::common::Position;
 
-pub const SPRITE_SIZE: u8 = 8;
+pub const SPRITE_SIZE: u32 = 8;
 pub const SPRITE_CENTER: f32 = SPRITE_SIZE as f32 / 2.0;
 
 pub struct Sprite {

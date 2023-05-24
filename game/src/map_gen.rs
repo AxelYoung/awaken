@@ -10,18 +10,19 @@ use super::physics::{Collider, Velocity};
 use super::transitions::Transition;
 use super::pushables::Pushable;
 
-pub const ROOM_TILE_WIDTH : u8 = 16;
-pub const ROOM_TILE_HEIGHT : u8 = 14;
+pub const ROOM_TILE_WIDTH : u32 = 16;
+pub const ROOM_TILE_HEIGHT : u32 = 14;
 
-pub const ROOM_PIXEL_WIDTH : u8 = ROOM_TILE_WIDTH * SPRITE_SIZE;
-pub const ROOM_PIXEL_HEIGHT : u8 = ROOM_TILE_HEIGHT * SPRITE_SIZE;
+pub const ROOM_PIXEL_WIDTH : u32 = ROOM_TILE_WIDTH * SPRITE_SIZE;
+pub const ROOM_PIXEL_HEIGHT : u32 = ROOM_TILE_HEIGHT * SPRITE_SIZE;
 
-pub const MAP_WIDTH: u8 = 1;
-pub const MAP_HEIGHT: u8 = 2;
+pub const MAP_WIDTH: u8 = 3;
+pub const MAP_HEIGHT: u8 = 3;
 
 const MAP: &[&[&[&[Tile]]]] = &[
-    &[START_HALL],
-    &[START_ROOM]
+    &[EMPTY_ROOM, HALL_UP, EMPTY_ROOM],
+    &[HALL_LEFT, START_HALL, HALL_RIGHT],
+    &[EMPTY_ROOM, START_ROOM, EMPTY_ROOM]
 ];
 
 #[derive(PartialEq)]
@@ -31,12 +32,17 @@ enum Tile {
     BT([Vec2i; 2]),
     PB,
     TR(Vec2i),
-    PL(usize, u32)
+    PL(usize, u32),
+    EM
 }
 
 use Tile::*;
 
-const ST : Tile = TR(Vec2i {x: 0, y: 1});
+const TN : Tile = TR(Vec2i {x: 0, y: 1});
+const TW : Tile = TR(Vec2i {x: -1, y: 0});
+const TE : Tile = TR(Vec2i {x: 1, y: 0});
+const TS : Tile = TR(Vec2i {x: 0, y: -1});
+
 const SB : Tile = BT([Vec2i {x: 7, y: 0}, Vec2i {x: 8, y: 0}]);
 
 const PN : Tile = PL(0, 41);
@@ -45,8 +51,25 @@ const PY : Tile = PL(2, 43);
 const PR : Tile = PL(3, 44);
 const PP : Tile = PL(4, 45);
 
+const EMPTY_ROOM: &[&[Tile]] = &[
+    &[EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM],
+    &[EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM],
+    &[EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM],
+    &[EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM],
+    &[EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM],
+    &[EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM],
+    &[EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM],
+    &[EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM],
+    &[EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM],
+    &[EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM],
+    &[EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM],
+    &[EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM],
+    &[EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM],
+    &[EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM]
+];
+
 const START_ROOM: &[&[Tile]] = &[
-    &[SW,SW,SW,SW,SW,SW,SW,ST,SF,SW,SW,SW,SW,SW,SW,SW],
+    &[SW,SW,SW,SW,SW,SW,SW,SF,SF,SW,SW,SW,SW,SW,SW,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
@@ -63,14 +86,65 @@ const START_ROOM: &[&[Tile]] = &[
 ];
 
 const START_HALL: &[&[Tile]] = &[
-    &[SW,SW,SW,SW,SW,SW,SW,SF,SF,SW,SW,SW,SW,SW,SW,SW],
+    &[SW,SW,SW,SW,SW,SW,SW,TN,SF,SW,SW,SW,SW,SW,SW,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[TW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,TE],
     &[SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF],
-    &[SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SW,SW,SW,SW,SW,SW,TS,SF,SW,SW,SW,SW,SW,SW,SW]
+];
+
+const HALL_LEFT: &[&[Tile]] = &[
+    &[SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW]
+];
+
+const HALL_RIGHT: &[&[Tile]] = &[
+    &[SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW]
+];
+
+const HALL_UP: &[&[Tile]] = &[
+    &[SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
@@ -93,6 +167,7 @@ pub fn create(game: &mut Game) {
             SW => { create_stone_wall(game, position) },
             SF => { create_stone_floor(game, position) },
             PB => { create_push_block(game, position) },
+            EM => { continue; }
             BT(gates) => { 
                 let gate_1_position = 
                     get_tile_position(room_x, room_y, gates[0].x as usize, gates[0].y as usize);
@@ -186,11 +261,11 @@ fn create_transition(game: &mut Game, position: Position, dir: Vec2i) {
 
 fn get_tile_position(room_x: usize, room_y: usize, x: usize, y: usize) -> Position {
     let room_position = Vec2::new(
-        (room_x as u8 * ROOM_PIXEL_WIDTH) as f32,
-        (room_y as u8 * ROOM_PIXEL_HEIGHT) as f32
+        (room_x as u32 * ROOM_PIXEL_WIDTH) as f32,
+        (room_y as u32 * ROOM_PIXEL_HEIGHT) as f32
     );
 
-    let rev_y = (ROOM_TILE_HEIGHT - 1) - y as u8;
+    let rev_y = (ROOM_TILE_HEIGHT - 1) - y as u32;
 
     let tile_position = Vec2::new(
         (x as f32 * SPRITE_SIZE as f32) + SPRITE_CENTER,

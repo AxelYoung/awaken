@@ -1,9 +1,10 @@
 use harmony::*;
 
+use crate::math::Vec2;
 use crate::pushables::Pushable;
 use crate::render::SPRITE_CENTER;
 
-use super::{Game, SCREEN_WIDTH, SCREEN_HEIGHT};
+use super::Game;
 use super::common::Position;
 use super::physics::{Collider, Velocity};
 use super::animation::{Animator, Animation, AnimationFrame};
@@ -113,6 +114,7 @@ fn restart_loop(game: &mut Game) {
         time: 0,
         playing: false
     });
+    game.world.add_component_to_entity(clone, Pushable{origin: Vec2::zero()});
 
     game.current_clone += 1;
 
@@ -142,7 +144,7 @@ fn restart_loop(game: &mut Game) {
     
     timer.as_mut().unwrap().current_time = 30.0;
 
-    game.chroma.update_camera(0.0, 4.0);
+    game.chroma.update_camera(-4.0, 8.0);
 
     game.time = 0;
 }

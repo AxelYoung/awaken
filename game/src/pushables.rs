@@ -21,9 +21,10 @@ fn check_pushable_collision(game: &mut Game) {
     let mut pushable : Option<usize> = None;
 
     iterate_entities!(game.world, [Position, Collider], (Velocity), 
-        |position_a: &Position, _, velocity: &mut Velocity| {            
+    |position_a: &Position, _, velocity: &mut Velocity| {            
             iterate_entities_with_id!(game.world, [Collider, Pushable, Position], 
-                |id, _, _, position_b: &Position| {
+            |id, _, _, position_b: &Position| {
+                if position_a != position_b {
                     let next_pos = Vec2::new(position_a.x + velocity.x, position_a.y+ velocity.y);
                     if check_collision(next_pos, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}, position_b.value, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}) {
                         pushable = Some(id);
@@ -32,9 +33,9 @@ fn check_pushable_collision(game: &mut Game) {
                         vel = Some((velocity.x, velocity.y));
                     }
                 }
-            );
-        }
-    );
+            }
+        );
+    });
 
     if let Some(id) = pushable {
         let pos = game.world.get_component_from_entity_mut::<Velocity>(id).unwrap().as_mut().unwrap();

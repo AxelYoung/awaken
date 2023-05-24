@@ -29,7 +29,7 @@ fn check_transitions_collision(game: &mut Game) {
                         game.chroma.update_camera(game.chroma.camera.x, game.chroma.camera.y - (dir * 4.0));
                     } else {
                         let dir = if player_position.x + 4.0 > position_b.x { -1.0 } else { 1.0 };
-                        game.chroma.update_camera(game.chroma.camera.x + (dir * 4.0), game.chroma.camera.y);
+                        game.chroma.update_camera(game.chroma.camera.x - (dir * 4.0), game.chroma.camera.y);
                     }
                 }
             } else {

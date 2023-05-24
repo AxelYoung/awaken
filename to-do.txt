@@ -1,6 +1,6 @@
 [] looping with timer
-    - [] force loop on timer
-    - [] overwrite loops when past clone 5
+    - [x] force loop on timer
+    - [x] overwrite loops when past clone 5
     - [] allow pushable clones 
 [] keys
 [] hazard
@@ -37,3 +37,5 @@ Pixel Chroma with lightmap: ~105
 
 Upscale Chroma without lightmap: ~600
 
+the clones always have a set path
+the clones 
