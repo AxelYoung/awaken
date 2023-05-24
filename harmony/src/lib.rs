@@ -66,16 +66,20 @@ impl World {
             self.component_vecs.push(Box::new(RefCell::new(new_component_vec)));
         }
 
-    pub fn get_component_from_entity_mut <ComponentType: 'static> (
-        &mut self,
-        entity: usize) -> Option<&mut Option<ComponentType>> {
-            for component_vec in self.component_vecs.iter_mut() {
-                if let Some(component_vec) = component_vec.as_any_mut().downcast_mut::<RefCell<Vec<Option<ComponentType>>>>() {
-                    return Some(&mut component_vec.get_mut()[entity]);
-                }
+    pub fn get_component_from_entity_mut <ComponentType: 'static> (&mut self, entity: usize) -> Option<&mut Option<ComponentType>> {
+        for component_vec in self.component_vecs.iter_mut() {
+            if let Some(component_vec) = component_vec.as_any_mut().downcast_mut::<RefCell<Vec<Option<ComponentType>>>>() {
+                return Some(&mut component_vec.get_mut()[entity]);
             }
-            None
         }
+        None
+    }
+
+    pub fn delete_entity (&mut self, entity: usize) {
+        for component_vec in self.component_vecs.iter_mut() {
+            component_vec.set_none(entity);
+        }
+    }
 
     pub fn borrow_components <ComponentType: 'static> (&self) -> Option<Ref<Vec<Option<ComponentType>>>> {
         for component_vec in self.component_vecs.iter() {
@@ -100,11 +104,16 @@ trait ComponentVec {
     fn as_any(&self) -> &dyn std::any::Any;
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any;
     fn push_none(&mut self);
+    fn set_none(&mut self, entity: usize);
 }
 
 impl<T: 'static> ComponentVec for RefCell<Vec<Option<T>>> {
     fn push_none(&mut self) {
         self.get_mut().push(None);
+    }
+
+    fn set_none(&mut self, entity: usize) {
+        self.get_mut()[entity] = None;
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

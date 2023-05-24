@@ -21,19 +21,14 @@ struct Clone {
 }
 
 pub fn create_ui(game: &mut Game) {
-    let loop_color = game.world.new_entity();
-
-    game.world.add_component_to_entity(loop_color, Position::new(SPRITE_CENTER, -14.0 * SPRITE_SIZE as f32 + SPRITE_CENTER));
-    game.world.add_component_to_entity(loop_color, Sprite::new(20, 100));
-
     let first_digit = game.world.new_entity();
 
-    game.world.add_component_to_entity(first_digit, Position::new(1.0 * SPRITE_SIZE as f32 + SPRITE_CENTER, -14.0 * SPRITE_SIZE as f32 + SPRITE_CENTER));
+    game.world.add_component_to_entity(first_digit, Position::new(SPRITE_CENTER, -14.0 * SPRITE_SIZE as f32 + SPRITE_CENTER));
     game.world.add_component_to_entity(first_digit, Sprite::new(25, 100));
 
     let second_digit = game.world.new_entity();
 
-    game.world.add_component_to_entity(second_digit, Position::new(2.0 * SPRITE_SIZE as f32 + SPRITE_CENTER, -14.0 * SPRITE_SIZE as f32 + SPRITE_CENTER));
+    game.world.add_component_to_entity(second_digit, Position::new(SPRITE_SIZE as f32 + SPRITE_CENTER, -14.0 * SPRITE_SIZE as f32 + SPRITE_CENTER));
     game.world.add_component_to_entity(second_digit, Sprite::new(25, 100));
 
     let timer = game.world.new_entity();
@@ -44,7 +39,7 @@ pub fn create_ui(game: &mut Game) {
 }
 
 pub fn update(game: &mut Game) {
-    restart_loop(game);
+    loop_early(game);
     set_timer(game);
     replay_clones(game);
 }
@@ -82,60 +77,74 @@ fn replay_clones(game: &mut Game) {
     }
 }
 
-fn restart_loop(game: &mut Game) {
+fn loop_early(game: &mut Game) {
     if game.input.loop_pressed {
-
-        iterate_entities!(game.world, [Pushable], (Position), 
-        |pushable: &Pushable, position: &mut Position| {
-            position.value = pushable.origin;
-        });
-
-        if game.clone_count > 0 {
-            iterate_entities!(game.world, (Clone, Position), 
-            |clone: &mut Clone, position: &mut Position| {
-                position.value = game.clone_spawns[clone.id];
-                clone.current_command = 1;
-            });
-        }
-
-        let clone = game.world.new_entity();
-        game.clones[game.clone_count] = clone;
-        game.world.add_component_to_entity(clone, Sprite::new(4 * game.clone_count as u32, 50));
-        game.world.add_component_to_entity(clone, Position {value: game.clone_spawns[game.clone_count]});
-        game.world.add_component_to_entity(clone, Velocity::new(0.0, 0.0));
-        game.world.add_component_to_entity(clone, Collider{});
-        game.world.add_component_to_entity(clone, Clone{id: game.clone_count, current_command: 1});
-        game.world.add_component_to_entity(clone, Animator{
-            animation: Animation {
-                frames: vec![AnimationFrame::new(1 + (4 * game.clone_count as u32), 75), AnimationFrame::new(4 * game.clone_count as u32, 75)],
-                r#loop: true
-            },
-            frame_index: 0,
-            time: 0,
-            playing: false
-        });
-
-        game.clone_count += 1;
-        game.current_clone += 1;
-
-        game.world.get_component_from_entity_mut::<Position>(game.player)
-            .unwrap().as_mut().unwrap().value = game.clone_spawns[game.clone_count];
-
-        game.world.get_component_from_entity_mut::<Sprite>(game.player)
-            .unwrap().as_mut().unwrap().index = 4 * game.clone_count as u32;
-
-        game.world.get_component_from_entity_mut::<Animator>(game.player)
-            .unwrap().as_mut().unwrap().animation = Animation {
-                frames: vec![AnimationFrame::new(1 + (4 * game.clone_count as u32), 75), AnimationFrame::new(4 * game.clone_count as u32, 75)],
-                r#loop: true
-            };
-
-        let timer = game.world.get_component_from_entity_mut::<Timer>(game.timer).unwrap();
-        
-        timer.as_mut().unwrap().current_time = 30.0;
-
-        game.time = 0;
+        restart_loop(game);
     }
+}
+
+fn restart_loop(game: &mut Game) {
+    iterate_entities!(game.world, [Pushable], (Position), 
+    |pushable: &Pushable, position: &mut Position| {
+        position.value = pushable.origin;
+    });
+
+    if game.clone_count > 0 {
+        iterate_entities!(game.world, (Clone, Position), 
+        |clone: &mut Clone, position: &mut Position| {
+            position.value = game.clone_spawns[clone.id];
+            clone.current_command = 1;
+        });
+    }
+
+    let clone = game.world.new_entity();
+    game.clones[game.current_clone] = clone;
+    game.world.add_component_to_entity(clone, Sprite::new(4 * game.current_clone as u32, 50));
+    game.world.add_component_to_entity(clone, Position {value: game.clone_spawns[game.current_clone]});
+    game.world.add_component_to_entity(clone, Velocity::new(0.0, 0.0));
+    game.world.add_component_to_entity(clone, Collider{});
+    game.world.add_component_to_entity(clone, Clone{id: game.current_clone, current_command: 1});
+    game.world.add_component_to_entity(clone, Animator{
+        animation: Animation {
+            frames: vec![AnimationFrame::new(1 + (4 * game.current_clone as u32), 75), AnimationFrame::new(4 * game.current_clone as u32, 75)],
+            r#loop: true
+        },
+        frame_index: 0,
+        time: 0,
+        playing: false
+    });
+
+    game.current_clone += 1;
+
+    if game.clone_count != 4 {
+        game.clone_count += 1;
+    } else {
+        if game.current_clone == 5 {
+            game.current_clone = 0;
+        }
+        game.world.delete_entity(game.clones[game.current_clone]);
+        game.clone_commands[game.current_clone] = vec![];
+    }
+
+    game.world.get_component_from_entity_mut::<Position>(game.player)
+        .unwrap().as_mut().unwrap().value = game.clone_spawns[game.current_clone];
+
+    game.world.get_component_from_entity_mut::<Sprite>(game.player)
+        .unwrap().as_mut().unwrap().index = 4 * game.current_clone as u32;
+
+    game.world.get_component_from_entity_mut::<Animator>(game.player)
+        .unwrap().as_mut().unwrap().animation = Animation {
+            frames: vec![AnimationFrame::new(1 + (4 * game.current_clone as u32), 75), AnimationFrame::new(4 * game.current_clone as u32, 75)],
+            r#loop: true
+        };
+
+    let timer = game.world.get_component_from_entity_mut::<Timer>(game.timer).unwrap();
+    
+    timer.as_mut().unwrap().current_time = 30.0;
+
+    game.chroma.update_camera(0.0, 4.0);
+
+    game.time = 0;
 }
 
 fn set_timer(game: &mut Game) {
@@ -148,6 +157,11 @@ fn set_timer(game: &mut Game) {
         let timer = game.world.get_component_from_entity_mut::<Timer>(game.timer).unwrap();
         
         timer.as_mut().unwrap().current_time -= game.delta_time as f32 / 1000.0;
+
+        if timer.as_ref().unwrap().current_time <= 0.0 {
+            restart_loop(game);
+            return
+        }
 
         first_digit = (timer.as_ref().unwrap().current_time / 10.0) as u8;
         second_digit = (timer.as_ref().unwrap().current_time - first_digit as f32 * 10.0) as u8;
