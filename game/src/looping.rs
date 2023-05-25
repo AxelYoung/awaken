@@ -10,6 +10,7 @@ use super::common::Position;
 use super::physics::{Collider, Velocity};
 use super::animation::{Animator, Animation, AnimationFrame};
 use super::render::{Sprite, SPRITE_SIZE};
+use super::buttons::SlaveButton;
 
 struct Timer {
     first_digit: usize,
@@ -94,6 +95,12 @@ fn restart_loop(game: &mut Game) {
         position.value = pushable.origin;
     });
 
+    iterate_entities!(game.world, (SlaveButton, Sprite), 
+    |button: &mut SlaveButton, sprite: &mut Sprite| {
+        button.collided = None;
+        sprite.index = 22;
+    });
+
     if game.clone_count > 0 {
         iterate_entities!(game.world, (Clone, Position), 
         |clone: &mut Clone, position: &mut Position| {
@@ -104,14 +111,14 @@ fn restart_loop(game: &mut Game) {
 
     let clone = game.world.new_entity();
     game.clones[game.current_clone] = clone;
-    game.world.add_component_to_entity(clone, Sprite::new(4 * game.current_clone as u32, 50));
+    game.world.add_component_to_entity(clone, Sprite::new(2 * game.current_clone as u32, 50));
     game.world.add_component_to_entity(clone, Position {value: game.clone_spawns[game.current_clone]});
     game.world.add_component_to_entity(clone, Velocity::new(0.0, 0.0));
     game.world.add_component_to_entity(clone, Collider{});
     game.world.add_component_to_entity(clone, Clone{id: game.current_clone, current_command: 1});
     game.world.add_component_to_entity(clone, Animator{
         animation: Animation {
-            frames: vec![AnimationFrame::new(1 + (4 * game.current_clone as u32), 75), AnimationFrame::new(4 * game.current_clone as u32, 75)],
+            frames: vec![AnimationFrame::new(1 + (2 * game.current_clone as u32), 75), AnimationFrame::new(2 * game.current_clone as u32, 75)],
             r#loop: true
         },
         frame_index: 0,
@@ -136,11 +143,11 @@ fn restart_loop(game: &mut Game) {
         .unwrap().as_mut().unwrap().value = game.clone_spawns[game.current_clone];
 
     game.world.get_component_from_entity_mut::<Sprite>(game.player)
-        .unwrap().as_mut().unwrap().index = 4 * game.current_clone as u32;
+        .unwrap().as_mut().unwrap().index = 2 * game.current_clone as u32;
 
     game.world.get_component_from_entity_mut::<Animator>(game.player)
         .unwrap().as_mut().unwrap().animation = Animation {
-            frames: vec![AnimationFrame::new(1 + (4 * game.current_clone as u32), 75), AnimationFrame::new(4 * game.current_clone as u32, 75)],
+            frames: vec![AnimationFrame::new(1 + (2 * game.current_clone as u32), 75), AnimationFrame::new(2 * game.current_clone as u32, 75)],
             r#loop: true
         };
 

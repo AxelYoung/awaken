@@ -1,10 +1,11 @@
 use itertools::iproduct;
 
 use crate::Game;
+use crate::buttons::SlaveButton;
 
 use super::common::Position;
 use super::math::{Vec2, Vec2i};
-use super::buttons::Button;
+use super::buttons::MasterButton;
 use super::render::{Sprite, SPRITE_SIZE, SPRITE_CENTER};
 use super::physics::{Collider, Velocity};
 use super::pushables::Pushable;
@@ -20,15 +21,15 @@ pub const MAP_HEIGHT: u8 = 3;
 
 const MAP: &[&[&[&[Tile]]]] = &[
     &[EMPTY_ROOM, HALL_UP, EMPTY_ROOM],
-    &[HALL_LEFT, START_HALL, HALL_RIGHT],
+    &[EMPTY_ROOM, START_HALL, HALL_RIGHT],
     &[EMPTY_ROOM, START_ROOM, EMPTY_ROOM]
 ];
 
 #[derive(PartialEq)]
-enum Tile {
+enum Tile<'a> {
     SW,
     SF,
-    BT([Vec2i; 2]),
+    BT(&'a [Vec2i], &'a [Vec2i]),
     PB,
     PL(usize, u32),
     EM
@@ -36,7 +37,7 @@ enum Tile {
 
 use Tile::*;
 
-const SB : Tile = BT([Vec2i {x: 7, y: 0}, Vec2i {x: 8, y: 0}]);
+const SB : Tile = BT(&[Vec2i {x: 4, y: 4}, Vec2i {x: 10, y: 4}, Vec2i {x: 13, y: 4}], &[Vec2i {x: 7, y: 0}, Vec2i {x: 8, y: 0}]);
 
 const PN : Tile = PL(0, 41);
 const PG : Tile = PL(1, 42);
@@ -66,11 +67,11 @@ const START_ROOM: &[&[Tile]] = &[
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SW,SF,SF,SF,SB,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SB,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,PB,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
@@ -85,32 +86,17 @@ const START_HALL: &[&[Tile]] = &[
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF],
-    &[SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF],
+    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,SF,SF,SF,SF,SF,PB,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SW,SW,SW,SW,SW,SW,SF,SF,SW,SW,SW,SW,SW,SW,SW]
 ];
 
-const HALL_LEFT: &[&[Tile]] = &[
-    &[SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW],
-    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF],
-    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF],
-    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW]
-];
+const BB : Tile = BT(&[], &[Vec2i {x: 8, y: 1}, Vec2i {x: 8, y: 2}, Vec2i {x: 8, y: 3}, Vec2i {x: 8, y: 4}, Vec2i {x: 8, y: 5}, Vec2i {x: 8, y: 6}, Vec2i {x: 8, y: 7}, Vec2i {x: 8, y: 8}, Vec2i {x: 8, y: 9}, Vec2i {x: 8, y: 10}, Vec2i {x: 8, y: 11}, Vec2i {x: 8, y: 12}]);
 
 const HALL_RIGHT: &[&[Tile]] = &[
     &[SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW],
@@ -120,7 +106,7 @@ const HALL_RIGHT: &[&[Tile]] = &[
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SF,SF,SF,SF,BB,SF,SF,SF,SF,SF,SF,SF,PB,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
@@ -161,13 +147,21 @@ pub fn create(game: &mut Game) {
             SF => { create_stone_floor(game, position) },
             PB => { create_push_block(game, position) },
             EM => { continue; }
-            BT(gates) => { 
-                let gate_1_position = 
-                    get_tile_position(room_x, room_y, gates[0].x as usize, gates[0].y as usize);
-                let gate_2_position = 
-                    get_tile_position(room_x, room_y, gates[1].x as usize, gates[1].y as usize);
-                    
-                create_button(game, position, gate_1_position, gate_2_position)
+            BT(buttons, gates) => { 
+
+                let mut gate_positions : Vec<Position> = vec![];
+
+                for gate in *gates {
+                    gate_positions.push(get_tile_position(room_x, room_y, gate.x as usize, gate.y as usize));
+                }
+
+                let mut button_positions : Vec<Position> = vec![];
+
+                for button in *buttons {
+                    button_positions.push(get_tile_position(room_x, room_y, button.x as usize, button.y as usize));
+                }
+
+                create_button(game, position, button_positions, gate_positions)
              },
             PL(clone, sprite) => { create_player_spawn(game, position, *clone, *sprite) }
         }
@@ -210,26 +204,39 @@ fn create_push_block(game: &mut Game, position: Position) {
     game.world.add_component_to_entity(push_box, Pushable{ origin: position.value });
 }
 
-fn create_button(game: &mut Game, position: Position, gate_1_position: Position, gate_2_position: Position) {
+fn create_button(game: &mut Game, position: Position, button_positions: Vec<Position>, gate_positions: Vec<Position>) {
     create_stone_floor(game, position);
 
-    let gate_1 = game.world.new_entity();
+    let mut gates : Vec<usize> = vec![];
 
-    game.world.add_component_to_entity(gate_1, gate_1_position);
-    game.world.add_component_to_entity(gate_1, Sprite::new(37, 25));
-    game.world.add_component_to_entity(gate_1, Collider {});
+    for gate in gate_positions {
+        let id = game.world.new_entity();
 
-    let gate_2 = game.world.new_entity();
+        game.world.add_component_to_entity(id, gate);
+        game.world.add_component_to_entity(id, Sprite::new(37, 25));
+        game.world.add_component_to_entity(id, Collider {});
 
-    game.world.add_component_to_entity(gate_2, gate_2_position);
-    game.world.add_component_to_entity(gate_2, Sprite::new(37, 25));
-    game.world.add_component_to_entity(gate_2, Collider {});
+        gates.push(id);
+    }
+
+    let mut slaves : Vec<usize> = vec![];
+
+    for button in button_positions {
+        let id = game.world.new_entity();
+
+        game.world.add_component_to_entity(id, button);
+        game.world.add_component_to_entity(id, Sprite::new(22, 10));
+        game.world.add_component_to_entity(id, SlaveButton { collided: None });
+
+        slaves.push(id);
+    }
 
     let button = game.world.new_entity();
 
-    game.world.add_component_to_entity(button, position);
-    game.world.add_component_to_entity(button, Sprite::new(38, 10));
-    game.world.add_component_to_entity(button, Button { gate_ids: vec![gate_1, gate_2], collided: None});
+    game.world.add_component_to_entity(button, Position::new(position.value.x, position.value.y));
+    game.world.add_component_to_entity(button, Sprite::new(22, 10));
+    game.world.add_component_to_entity(button, MasterButton { gates, slaves});
+    game.world.add_component_to_entity(button, SlaveButton { collided: None });
 }
 
 fn get_tile_position(room_x: usize, room_y: usize, x: usize, y: usize) -> Position {
