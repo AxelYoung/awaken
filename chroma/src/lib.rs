@@ -145,7 +145,7 @@ impl Chroma {
         ).await.unwrap();
 
         let (render_pipeline, vertex_buffer, index_buffer, indices_count, diffuse_bind_group, texture, texture_view, instance_buffer, instances, camera, camera_raw, camera_buffer, camera_bind_group) = 
-        Chroma::create_pixel_renderer(pixel_width, pixel_height, &device, &queue);
+        Chroma::create_pixel_renderer(&surface, &adapter, pixel_width, pixel_height, &device, &queue);
 
         let (config, upscale_pipeline, upscale_vertex_buffer, upscale_bind_group, clip_rect) = 
         Chroma::create_upscale_renderer(&surface, &adapter, &device, window_size, &texture_view, pixel_width, pixel_height);
@@ -266,8 +266,16 @@ impl Chroma {
         output.present();
     }
 
-    fn create_pixel_renderer(width: u32, height: u32, device: &wgpu::Device, queue: &wgpu::Queue) ->
+    fn create_pixel_renderer(surface: &wgpu::Surface, adapter: &wgpu::Adapter, width: u32, height: u32, device: &wgpu::Device, queue: &wgpu::Queue) ->
     (wgpu::RenderPipeline, wgpu::Buffer, wgpu::Buffer, u32, wgpu::BindGroup, wgpu::Texture, wgpu::TextureView, wgpu::Buffer, Vec<Instance>, Camera, CameraRaw, wgpu::Buffer, wgpu::BindGroup) {
+        let surface_capabilities = surface.get_capabilities(&adapter);
+
+        let surface_format = surface_capabilities.formats.iter()
+            .copied()
+            .filter(|f| f.is_srgb())
+            .next()
+            .unwrap_or(surface_capabilities.formats[0]);
+        
         let texture_desc = wgpu::TextureDescriptor {
             size: wgpu::Extent3d {
                 width,
@@ -277,7 +285,7 @@ impl Chroma {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            format: surface_format,
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
             label: None,
             view_formats: &[],
@@ -400,7 +408,7 @@ impl Chroma {
                     module: &shader,
                     entry_point: "fs_main",
                     targets: &[Some(wgpu::ColorTargetState {
-                        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                        format: surface_format,
                         blend: Some(wgpu::BlendState::ALPHA_BLENDING),
                         write_mask: wgpu::ColorWrites::ALL
                     })]
@@ -591,7 +599,7 @@ impl Chroma {
                 module: &module,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                    format: surface_format,
                     blend: Some(wgpu::BlendState::REPLACE),
                     write_mask: wgpu::ColorWrites::ALL
                 })]

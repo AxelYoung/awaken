@@ -144,6 +144,7 @@ pub fn run() {
 }
 
 fn update(game: &mut Game) {
+    println!("FPS: {} ", {1000.0 / game.delta_time as f32 });
     animation::update(game);
     player::update(game);
     camera::update(game);
