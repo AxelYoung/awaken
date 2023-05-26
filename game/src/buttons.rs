@@ -11,8 +11,18 @@ pub struct MasterButton {
 }
 
 pub struct SlaveButton {
+    pub r#type: ButtonType,
     pub collided: Option<usize>
 }
+
+#[derive(PartialEq, Clone, Copy)]
+pub enum ButtonType {
+    Any,
+    AnyColor,
+    Color(u8)
+}
+
+use ButtonType::*;
 
 pub fn fixed_update(game: &mut Game) {
     check_button_collision(game);
@@ -26,11 +36,33 @@ fn check_button_collision(game: &mut Game) {
         |position_b: &Position, button: &mut SlaveButton, sprite: &mut Sprite| {
             if check_collision(position_a.value, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}, position_b.value, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}) {
                 if button.collided == None {
-                    sprite.index = 23;
+                    let sprite_index = match button.r#type {
+                        Any => {23},
+                        AnyColor => {21},
+                        Color(4) => {19},
+                        Color(3) => {17},
+                        Color(2) => {15},
+                        Color(1) => {13},
+                        Color(0) => {11},
+                        _ => {0}
+                    };
+    
+                    sprite.index = sprite_index;
                     button.collided = Some(id);
                 }
             } else if button.collided == Some(id) {
-                sprite.index = 22;
+                let sprite_index = match button.r#type {
+                    Any => {22},
+                    AnyColor => {20},
+                    Color(4) => {18},
+                    Color(3) => {16},
+                    Color(2) => {14},
+                    Color(1) => {12},
+                    Color(0) => {10},
+                    _ => {0}
+                };
+        
+                sprite.index = sprite_index;
                 button.collided = None;
             }
         });

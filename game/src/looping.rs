@@ -98,7 +98,17 @@ fn restart_loop(game: &mut Game) {
     iterate_entities!(game.world, (SlaveButton, Sprite), 
     |button: &mut SlaveButton, sprite: &mut Sprite| {
         button.collided = None;
-        sprite.index = 22;
+        let sprite_index = match button.r#type {
+            super::buttons::ButtonType::Any => {22},
+            super::buttons::ButtonType::AnyColor => {20},
+            super::buttons::ButtonType::Color(4) => {18},
+            super::buttons::ButtonType::Color(3) => {16},
+            super::buttons::ButtonType::Color(2) => {14},
+            super::buttons::ButtonType::Color(1) => {12},
+            super::buttons::ButtonType::Color(0) => {10},
+            _ => {0}
+        };
+        sprite.index = sprite_index;
     });
 
     if game.clone_count > 0 {

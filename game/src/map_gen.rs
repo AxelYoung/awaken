@@ -29,15 +29,18 @@ const MAP: &[&[&[&[Tile]]]] = &[
 enum Tile<'a> {
     SW,
     SF,
-    BT(&'a [Vec2i], &'a [Vec2i]),
+    BT(ButtonType, &'a [(ButtonType, Vec2i)], &'a [Vec2i]),
     PB,
     PL(usize, u32),
     EM
 }
 
-use Tile::*;
 
-const SB : Tile = BT(&[Vec2i {x: 4, y: 4}, Vec2i {x: 10, y: 4}, Vec2i {x: 13, y: 4}], &[Vec2i {x: 7, y: 0}, Vec2i {x: 8, y: 0}]);
+
+use Tile::*;
+use super::buttons::ButtonType::{*, self};
+
+const SB : Tile = BT(Color(0), &[(Color(1), Vec2i {x: 4, y: 4}), (Color(2), Vec2i {x: 10, y: 4}), (Color(3), Vec2i {x: 13, y: 4})], &[Vec2i {x: 7, y: 0}, Vec2i {x: 8, y: 0}]);
 
 const PN : Tile = PL(0, 41);
 const PG : Tile = PL(1, 42);
@@ -96,7 +99,7 @@ const START_HALL: &[&[Tile]] = &[
     &[SW,SW,SW,SW,SW,SW,SW,SF,SF,SW,SW,SW,SW,SW,SW,SW]
 ];
 
-const BB : Tile = BT(&[], &[Vec2i {x: 8, y: 1}, Vec2i {x: 8, y: 2}, Vec2i {x: 8, y: 3}, Vec2i {x: 8, y: 4}, Vec2i {x: 8, y: 5}, Vec2i {x: 8, y: 6}, Vec2i {x: 8, y: 7}, Vec2i {x: 8, y: 8}, Vec2i {x: 8, y: 9}, Vec2i {x: 8, y: 10}, Vec2i {x: 8, y: 11}, Vec2i {x: 8, y: 12}]);
+const BB : Tile = BT(Any, &[], &[Vec2i {x: 8, y: 1}, Vec2i {x: 8, y: 2}, Vec2i {x: 8, y: 3}, Vec2i {x: 8, y: 4}, Vec2i {x: 8, y: 5}, Vec2i {x: 8, y: 6}, Vec2i {x: 8, y: 7}, Vec2i {x: 8, y: 8}, Vec2i {x: 8, y: 9}, Vec2i {x: 8, y: 10}, Vec2i {x: 8, y: 11}, Vec2i {x: 8, y: 12}]);
 
 const HALL_RIGHT: &[&[Tile]] = &[
     &[SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW],
@@ -147,21 +150,21 @@ pub fn create(game: &mut Game) {
             SF => { create_stone_floor(game, position) },
             PB => { create_push_block(game, position) },
             EM => { continue; }
-            BT(buttons, gates) => { 
+            BT(button_type, buttons_vec, gates_vec2) => { 
 
                 let mut gate_positions : Vec<Position> = vec![];
 
-                for gate in *gates {
+                for gate in *gates_vec2 {
                     gate_positions.push(get_tile_position(room_x, room_y, gate.x as usize, gate.y as usize));
                 }
 
-                let mut button_positions : Vec<Position> = vec![];
+                let mut buttons : Vec<(ButtonType, Position)> = vec![];
 
-                for button in *buttons {
-                    button_positions.push(get_tile_position(room_x, room_y, button.x as usize, button.y as usize));
+                for (bt_type, bt_pos) in buttons_vec.iter() {
+                    buttons.push((*bt_type, get_tile_position(room_x, room_y, bt_pos.x as usize, bt_pos.y as usize)));
                 }
 
-                create_button(game, position, button_positions, gate_positions)
+                create_button(game, *button_type, position, buttons, gate_positions);
              },
             PL(clone, sprite) => { create_player_spawn(game, position, *clone, *sprite) }
         }
@@ -204,7 +207,7 @@ fn create_push_block(game: &mut Game, position: Position) {
     game.world.add_component_to_entity(push_box, Pushable{ origin: position.value });
 }
 
-fn create_button(game: &mut Game, position: Position, button_positions: Vec<Position>, gate_positions: Vec<Position>) {
+fn create_button(game: &mut Game, button_type: ButtonType, position: Position, buttons: Vec<(ButtonType, Position)>, gate_positions: Vec<Position>) {
     create_stone_floor(game, position);
 
     let mut gates : Vec<usize> = vec![];
@@ -221,12 +224,24 @@ fn create_button(game: &mut Game, position: Position, button_positions: Vec<Posi
 
     let mut slaves : Vec<usize> = vec![];
 
-    for button in button_positions {
+    for (bt_type, bt_pos) in buttons {
         let id = game.world.new_entity();
 
-        game.world.add_component_to_entity(id, button);
-        game.world.add_component_to_entity(id, Sprite::new(22, 10));
-        game.world.add_component_to_entity(id, SlaveButton { collided: None });
+        game.world.add_component_to_entity(id, bt_pos);
+
+        let sprite = match bt_type {
+            Any => {22},
+            AnyColor => {20},
+            Color(4) => {18},
+            Color(3) => {16},
+            Color(2) => {14},
+            Color(1) => {12},
+            Color(0) => {10},
+            _ => {0}
+        };
+
+        game.world.add_component_to_entity(id, Sprite::new(sprite, 10));
+        game.world.add_component_to_entity(id, SlaveButton { r#type: bt_type, collided: None });
 
         slaves.push(id);
     }
@@ -234,9 +249,21 @@ fn create_button(game: &mut Game, position: Position, button_positions: Vec<Posi
     let button = game.world.new_entity();
 
     game.world.add_component_to_entity(button, Position::new(position.value.x, position.value.y));
-    game.world.add_component_to_entity(button, Sprite::new(22, 10));
+
+    let sprite = match button_type {
+        Any => {22},
+        AnyColor => {20},
+        Color(4) => {18},
+        Color(3) => {16},
+        Color(2) => {14},
+        Color(1) => {12},
+        Color(0) => {10},
+        _ => {0}
+    };
+
+    game.world.add_component_to_entity(button, Sprite::new(sprite, 10));
     game.world.add_component_to_entity(button, MasterButton { gates, slaves});
-    game.world.add_component_to_entity(button, SlaveButton { collided: None });
+    game.world.add_component_to_entity(button, SlaveButton { r#type: button_type, collided: None });
 }
 
 fn get_tile_position(room_x: usize, room_y: usize, x: usize, y: usize) -> Position {

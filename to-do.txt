@@ -1,7 +1,8 @@
-[] looping with timer
-    - [x] force loop on timer
-    - [x] overwrite loops when past clone 5
-    - [] allow pushable clones 
+[] clone trails
+[] highlight currently controlled clone
+
+[] certain items being persistent through loops?
+[] color specific buttons 
 [] keys
 [] hazard
 
