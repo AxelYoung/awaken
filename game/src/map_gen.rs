@@ -219,7 +219,7 @@ fn create_button(game: &mut Game, button_type: ButtonType, position: Position, b
         let id = game.world.new_entity();
 
         game.world.add_component_to_entity(id, gate);
-        game.world.add_component_to_entity(id, Sprite::new(37, 25));
+        game.world.add_component_to_entity(id, Sprite::new(37, 1));
         game.world.add_component_to_entity(id, Collider {});
 
         gates.push(id);
@@ -243,7 +243,7 @@ fn create_button(game: &mut Game, button_type: ButtonType, position: Position, b
             _ => {0}
         };
 
-        game.world.add_component_to_entity(id, Sprite::new(sprite, 10));
+        game.world.add_component_to_entity(id, Sprite::new(sprite, 1));
         game.world.add_component_to_entity(id, SlaveButton { r#type: bt_type, collided: None });
 
         slaves.push(id);
@@ -264,7 +264,7 @@ fn create_button(game: &mut Game, button_type: ButtonType, position: Position, b
         _ => {0}
     };
 
-    game.world.add_component_to_entity(button, Sprite::new(sprite, 10));
+    game.world.add_component_to_entity(button, Sprite::new(sprite, 1));
     game.world.add_component_to_entity(button, MasterButton { gates, slaves});
     game.world.add_component_to_entity(button, SlaveButton { r#type: button_type, collided: None });
 }

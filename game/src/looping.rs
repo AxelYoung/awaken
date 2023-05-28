@@ -2,6 +2,7 @@ use harmony::*;
 
 use crate::map_gen::{ROOM_PIXEL_WIDTH, ROOM_PIXEL_HEIGHT};
 use crate::math::Vec2;
+use crate::player::Trail;
 use crate::pushables::Pushable;
 use crate::render::SPRITE_CENTER;
 
@@ -149,6 +150,16 @@ fn restart_loop(game: &mut Game) {
         }
         game.world.delete_entity(game.clones[game.current_clone]);
         game.clone_commands[game.current_clone] = vec![];
+        let mut  trails : Vec<usize> = vec![];
+        iterate_entities_with_id!(game.world, [Trail], 
+        |id, trail: &Trail| {
+            if trail.color == game.current_clone as u8 {
+                trails.push(id);
+            }
+        });
+        for trail in trails {
+            game.world.delete_entity(trail);
+        }
     }
 
     game.world.get_component_from_entity_mut::<Player>(game.player)

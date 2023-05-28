@@ -9,7 +9,7 @@ use super::physics::{Collider, Velocity};
 use super::render::{Sprite, SPRITE_SIZE};
 use super::animation::*;
 
-const TRAIL_FREQUENCY: u128 = 100;
+const TRAIL_FREQUENCY: u128 = 10;
 
 pub struct Player {
     pub speed: f32,
@@ -20,6 +20,9 @@ pub struct Player {
 }
 
 pub struct PlayerMarker{}
+pub struct Trail{
+    pub color: u8
+}
 
 pub fn create(game: &mut Game, clone: usize) {
     let player = game.world.new_entity();
@@ -124,8 +127,9 @@ fn create_trail(game: &mut Game) {
 
     if create {
         let trail = game.world.new_entity();
-        game.world.add_component_to_entity(trail, Sprite::new(player_color as u32 + 46, 40));
+        game.world.add_component_to_entity(trail, Sprite::new(player_color as u32 + 46, 10));
         game.world.add_component_to_entity(trail, Position::new(player_pos.x, player_pos.y));
+        game.world.add_component_to_entity(trail, Trail {color: player_color});
         create = false;
     }
 }

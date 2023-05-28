@@ -1,7 +1,7 @@
 use harmony::*;
 use crate::Game;
-
 use super::render::Sprite;
+
 pub struct Animator {
     pub animation: Animation,
     pub frame_index: usize,
