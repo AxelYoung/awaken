@@ -1,11 +1,10 @@
 #![allow(non_snake_case)]
 
-use std::vec;
-
 use chroma::*;
 use harmony::*;
 
 use input::Input;
+use map_gen::{MAP_TILE_WIDTH, MAP_TILE_HEIGHT};
 use math::Vec2;
 use winit::{
     dpi::PhysicalSize,
@@ -19,23 +18,21 @@ use winit_input_helper::WinitInputHelper;
 use wasm_bindgen::prelude::*;
 
 mod animation;
-mod buttons;
 mod camera;
 mod common;
 mod input;
-mod looping;
 mod map_gen;
 mod math;
-mod physics;
-mod player;
-mod pushables;
 mod render;
+mod player;
+mod collision;
+mod movement;
 
 const TICK_DURATION: u128 = 20;
 
-const SCREEN_WIDTH: u32 = 128;
-const SCREEN_HEIGHT: u32 = 112;
-const SCREEN_SCALE: u32 = 8;
+const SCREEN_WIDTH: u32 = 256;
+const SCREEN_HEIGHT: u32 = 224;
+const SCREEN_SCALE: u32 = 4;
 
 const WINDOW_WIDTH: u32 = SCREEN_WIDTH * SCREEN_SCALE;
 const WINDOW_HEIGHT: u32 = SCREEN_HEIGHT * SCREEN_SCALE;
@@ -47,32 +44,24 @@ pub struct Game {
 
     delta_time: u128,
     time: u128,
-    timer: usize,
 
     player: usize,
-
-    clones: [usize; 5],
     clone_spawns: [Vec2; 5],
-    clone_commands: [Vec<(Vec2, u128)>; 5],
-    current_clone: usize,
-    clone_count: usize,
+
+    colliders: [[bool; MAP_TILE_HEIGHT]; MAP_TILE_WIDTH]
 }
 
 impl Game {
     pub fn new(window: &Window) -> Self {
         Self {
             player: 0,
-            timer: 0,
-            clones: [0; 5],
             clone_spawns: [Vec2::zero(); 5],
-            clone_commands: [vec![], vec![], vec![], vec![], vec![]],
-            current_clone: 0,
             time: 0,
-            clone_count: 0,
             world: World::new(),
             chroma: pollster::block_on(Chroma::new(SCREEN_WIDTH, SCREEN_HEIGHT, &window)),
             input: Input::none(),
             delta_time: 0,
+            colliders: [[false; MAP_TILE_HEIGHT]; MAP_TILE_WIDTH]
         }
     }
 }
@@ -123,9 +112,7 @@ pub fn run() {
 
     map_gen::create(&mut game);
 
-    looping::create_ui(&mut game);
-
-    player::create(&mut game, 0);
+    player::create(&mut game);
 
     let mut winit = WinitInputHelper::new();
 
@@ -152,9 +139,9 @@ pub fn run() {
 
 fn update(game: &mut Game) {
     animation::update(game);
-    player::update(game);
     camera::update(game);
-    looping::update(game);
+    player::update(game);
+    movement::update(game);
 }
 
 fn fixed_tick_manager(game: &mut Game, tick_accumulator: &mut u128) {
@@ -167,7 +154,4 @@ fn fixed_tick_manager(game: &mut Game, tick_accumulator: &mut u128) {
 }
 
 fn fixed_update(game: &mut Game) {
-    pushables::fixed_update(game);
-    buttons::fixed_update(game);
-    physics::fixed_update(game);
 }

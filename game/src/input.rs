@@ -1,6 +1,8 @@
 use winit::{event_loop::ControlFlow, event::VirtualKeyCode};
 use winit_input_helper::WinitInputHelper;
 
+use super::math::Vec2i;
+
 pub struct Input {
     pub up_pressed: bool,
     pub down_pressed: bool,
@@ -28,6 +30,14 @@ impl Input {
             right_pressed,
             loop_pressed
         }
+    }
+
+    pub fn dir (&self) -> Vec2i {
+        if self.up_pressed { Vec2i::new(0, 1) } 
+        else if self.down_pressed { Vec2i::new(0, -1) }
+        else if self.right_pressed { Vec2i::new(1, 0) }
+        else if self.left_pressed { Vec2i::new(-1, 0) }
+        else { Vec2i::zero() }
     }
 
     pub fn none() -> Self {

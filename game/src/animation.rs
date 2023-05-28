@@ -1,7 +1,7 @@
 use harmony::*;
-use crate::Game;
-use super::render::Sprite;
+use super::Game;
 
+use super::render::Sprite;
 pub struct Animator {
     pub animation: Animation,
     pub frame_index: usize,
@@ -28,21 +28,23 @@ pub struct Animation {
 }
 
 pub struct AnimationFrame {
-    sprite: u32,
+    sprite_index_x: u32,
+    sprite_index_y: u32,
     length: u128
 }
 
 impl AnimationFrame {
-    pub fn new (sprite: u32, length: u128) -> Self {
+    pub fn new (sprite_index_x: u32, sprite_index_y: u32, length: u128) -> Self {
         Self {
-            sprite,
+            sprite_index_x,
+            sprite_index_y,
             length
         }
     }
 }
 
 pub fn update(game: &mut Game) {
-    animate_entities(game);
+    //animate_entities(game);
 }
 
 fn animate_entities(game: &mut Game) {
@@ -53,7 +55,8 @@ fn animate_entities(game: &mut Game) {
             if animator.time > animator.current_frame().length {
                 animator.time = 0;
                 animator.step();
-                sprite.index = animator.current_frame().sprite;
+                sprite.index_x = animator.current_frame().sprite_index_x;
+                sprite.index_y = animator.current_frame().sprite_index_y;
             }
         }
     });
