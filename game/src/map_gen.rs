@@ -40,7 +40,7 @@ enum Tile<'a> {
 use Tile::*;
 use super::buttons::ButtonType::{*, self};
 
-const SB : Tile = BT(Color(0), &[(Color(1), Vec2i {x: 4, y: 4}), (Color(2), Vec2i {x: 10, y: 4}), (Color(3), Vec2i {x: 13, y: 4})], &[Vec2i {x: 7, y: 0}, Vec2i {x: 8, y: 0}]);
+const SB : Tile = BT(Color(0), &[(Color(1), Vec2i {x: 4, y: 4}), (Any, Vec2i {x: 10, y: 4}), (Color(3), Vec2i {x: 13, y: 4})], &[Vec2i {x: 7, y: 0}, Vec2i {x: 8, y: 0}]);
 
 const PN : Tile = PL(0, 41);
 const PG : Tile = PL(1, 42);
@@ -82,12 +82,14 @@ const START_ROOM: &[&[Tile]] = &[
     &[SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW]
 ];
 
+const HB : Tile = BT(Color(4), &[(Any, Vec2i {x: 4, y: 4})], &[Vec2i {x: 7, y: 0}, Vec2i {x: 8, y: 0}]);
+
 const START_HALL: &[&[Tile]] = &[
     &[SW,SW,SW,SW,SW,SW,SW,SF,SF,SW,SW,SW,SW,SW,SW,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+    &[SW,HB,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF],
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF],
@@ -99,7 +101,7 @@ const START_HALL: &[&[Tile]] = &[
     &[SW,SW,SW,SW,SW,SW,SW,SF,SF,SW,SW,SW,SW,SW,SW,SW]
 ];
 
-const BB : Tile = BT(Any, &[], &[Vec2i {x: 8, y: 1}, Vec2i {x: 8, y: 2}, Vec2i {x: 8, y: 3}, Vec2i {x: 8, y: 4}, Vec2i {x: 8, y: 5}, Vec2i {x: 8, y: 6}, Vec2i {x: 8, y: 7}, Vec2i {x: 8, y: 8}, Vec2i {x: 8, y: 9}, Vec2i {x: 8, y: 10}, Vec2i {x: 8, y: 11}, Vec2i {x: 8, y: 12}]);
+const BB : Tile = BT(AnyColor, &[], &[Vec2i {x: 8, y: 1}, Vec2i {x: 8, y: 2}, Vec2i {x: 8, y: 3}, Vec2i {x: 8, y: 4}, Vec2i {x: 8, y: 5}, Vec2i {x: 8, y: 6}, Vec2i {x: 8, y: 7}, Vec2i {x: 8, y: 8}, Vec2i {x: 8, y: 9}, Vec2i {x: 8, y: 10}, Vec2i {x: 8, y: 11}, Vec2i {x: 8, y: 12}]);
 
 const HALL_RIGHT: &[&[Tile]] = &[
     &[SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW],
@@ -117,6 +119,7 @@ const HALL_RIGHT: &[&[Tile]] = &[
     &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
     &[SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW]
 ];
+
 
 const HALL_UP: &[&[Tile]] = &[
     &[SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW,SW],

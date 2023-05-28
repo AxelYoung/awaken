@@ -11,6 +11,7 @@ use super::physics::{Collider, Velocity};
 use super::animation::{Animator, Animation, AnimationFrame};
 use super::render::{Sprite, SPRITE_SIZE};
 use super::buttons::SlaveButton;
+use super::player::Player;
 
 struct Timer {
     first_digit: usize,
@@ -18,9 +19,10 @@ struct Timer {
     current_time: f32
 }
 
-struct Clone { 
+pub struct Clone { 
     id: usize,
-    current_command: usize
+    current_command: usize,
+    pub color: u8
 }
 
 pub fn create_ui(game: &mut Game) {
@@ -125,7 +127,7 @@ fn restart_loop(game: &mut Game) {
     game.world.add_component_to_entity(clone, Position {value: game.clone_spawns[game.current_clone]});
     game.world.add_component_to_entity(clone, Velocity::new(0.0, 0.0));
     game.world.add_component_to_entity(clone, Collider{});
-    game.world.add_component_to_entity(clone, Clone{id: game.current_clone, current_command: 1});
+    game.world.add_component_to_entity(clone, Clone{id: game.current_clone, current_command: 1, color: game.current_clone as u8});
     game.world.add_component_to_entity(clone, Animator{
         animation: Animation {
             frames: vec![AnimationFrame::new(1 + (2 * game.current_clone as u32), 75), AnimationFrame::new(2 * game.current_clone as u32, 75)],
@@ -148,6 +150,9 @@ fn restart_loop(game: &mut Game) {
         game.world.delete_entity(game.clones[game.current_clone]);
         game.clone_commands[game.current_clone] = vec![];
     }
+
+    game.world.get_component_from_entity_mut::<Player>(game.player)
+        .unwrap().as_mut().unwrap().color = game.current_clone as u8;
 
     game.world.get_component_from_entity_mut::<Position>(game.player)
         .unwrap().as_mut().unwrap().value = game.clone_spawns[game.current_clone];

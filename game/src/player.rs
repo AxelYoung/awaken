@@ -8,24 +8,29 @@ use super::math::Vec2;
 use super::physics::{Collider, Velocity};
 use super::render::{Sprite, SPRITE_SIZE};
 use super::animation::*;
-use super::map_gen::ROOM_TILE_HEIGHT;
+
+const TRAIL_FREQUENCY: u128 = 100;
 
 pub struct Player {
     pub speed: f32,
     pub active: bool,
-    pub dir: Vec2
+    pub dir: Vec2,
+    pub color: u8,
+    trail_timer: u128
 }
 
-pub fn create(game: &mut Game, clone: usize) {
-    let e = game.world.new_entity();
+pub struct PlayerMarker{}
 
-    game.world.add_component_to_entity(e, Sprite::new(0, 50));
-    game.world.add_component_to_entity(e, Position {value: game.clone_spawns[clone]});
-    game.world.add_component_to_entity(e, Velocity::new(0.0, 0.0));
-    game.world.add_component_to_entity(e, Player {speed: 0.8, active: true, dir: Vec2::new(0.0, 0.0)});
-    game.world.add_component_to_entity(e, Collider{});
-    game.world.add_component_to_entity(e, Pushable { origin: Vec2::zero() });
-    game.world.add_component_to_entity(e, Animator{
+pub fn create(game: &mut Game, clone: usize) {
+    let player = game.world.new_entity();
+
+    game.world.add_component_to_entity(player, Sprite::new(0, 50));
+    game.world.add_component_to_entity(player, Position {value: game.clone_spawns[clone]});
+    game.world.add_component_to_entity(player, Velocity::new(0.0, 0.0));
+    game.world.add_component_to_entity(player, Player {speed: 0.8, active: true, dir: Vec2::new(0.0, 0.0), color: 0, trail_timer: 0});
+    game.world.add_component_to_entity(player, Collider{});
+    game.world.add_component_to_entity(player, Pushable { origin: Vec2::zero() });
+    game.world.add_component_to_entity(player, Animator{
         animation: Animation {
             frames: vec![AnimationFrame::new(1, 75), AnimationFrame::new(0, 75)],
             r#loop: true
@@ -34,14 +39,22 @@ pub fn create(game: &mut Game, clone: usize) {
         time: 0,
         playing: false
     });
+    
+    let marker = game.world.new_entity();
+
+    game.world.add_component_to_entity(marker, PlayerMarker{});
+    game.world.add_component_to_entity(marker, Sprite::new(24, 100));
+    game.world.add_component_to_entity(marker, Position::new(0.0, 0.0));
 
     game.chroma.update_camera(-4.0, 8.0);
 
-    game.player = e;
+    game.player = player;
 }
 
 pub fn update(game: &mut Game) {
     set_dir(game);
+    set_marker(game);
+    create_trail(game);
 }
 
 fn set_dir(game: &mut Game) {
@@ -83,4 +96,36 @@ fn set_dir(game: &mut Game) {
             }
         }
     );
+}
+
+fn set_marker(game: &mut Game) {
+    let player_pos = game.world.get_component_from_entity_mut::<Position>(game.player).unwrap().as_mut().unwrap().value;
+    iterate_entities!(game.world, [PlayerMarker], (Position),
+    |_, marker_pos: &mut Position| {
+        marker_pos.value = Vec2::new(player_pos.x, player_pos.y + 5.0);
+    });
+}
+
+fn create_trail(game: &mut Game) {
+
+    let mut create = false;
+
+    let player_pos = game.world.get_component_from_entity_mut::<Position>(game.player).unwrap().as_mut().unwrap().value;
+
+    let player = game.world.get_component_from_entity_mut::<Player>(game.player).unwrap().as_mut().unwrap();
+
+    let player_color = player.color;
+   
+    player.trail_timer += game.delta_time;
+    if player.trail_timer >= TRAIL_FREQUENCY {
+        create = true;
+        player.trail_timer = 0;
+    }
+
+    if create {
+        let trail = game.world.new_entity();
+        game.world.add_component_to_entity(trail, Sprite::new(player_color as u32 + 46, 40));
+        game.world.add_component_to_entity(trail, Position::new(player_pos.x, player_pos.y));
+        create = false;
+    }
 }

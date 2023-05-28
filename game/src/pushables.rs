@@ -28,8 +28,8 @@ fn check_pushable_collision(game: &mut Game) {
                     let next_pos = Vec2::new(position_a.x + velocity.x, position_a.y+ velocity.y);
                     if check_collision(next_pos, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}, position_b.value, Bounds{right: SPRITE_SIZE as f32, bottom: SPRITE_SIZE as f32}) {
                         pushable = Some(id);
-                        velocity.x *= 0.5;
-                        velocity.y *= 0.5;
+                        velocity.x *= 0.8;
+                        velocity.y *= 0.8;
                         vel = Some((velocity.x, velocity.y));
                     }
                 }

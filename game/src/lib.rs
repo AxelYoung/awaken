@@ -2,17 +2,20 @@
 
 use std::vec;
 
-use harmony::*;
 use chroma::*;
+use harmony::*;
 
 use input::Input;
 use math::Vec2;
-use winit::{event_loop::EventLoop, 
-            window::{WindowBuilder, Window}, dpi::PhysicalSize};
+use winit::{
+    dpi::PhysicalSize,
+    event_loop::EventLoop,
+    window::{Window, WindowBuilder},
+};
 
 use winit_input_helper::WinitInputHelper;
 
-#[cfg(target_arch="wasm32")]
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
 mod animation;
@@ -22,9 +25,9 @@ mod common;
 mod input;
 mod looping;
 mod map_gen;
+mod math;
 mod physics;
 mod player;
-mod math;
 mod pushables;
 mod render;
 
@@ -32,12 +35,12 @@ const TICK_DURATION: u128 = 20;
 
 const SCREEN_WIDTH: u32 = 128;
 const SCREEN_HEIGHT: u32 = 112;
-const SCREEN_SCALE: u32 = 12;
+const SCREEN_SCALE: u32 = 8;
 
 const WINDOW_WIDTH: u32 = SCREEN_WIDTH * SCREEN_SCALE;
 const WINDOW_HEIGHT: u32 = SCREEN_HEIGHT * SCREEN_SCALE;
 
-pub struct Game{ 
+pub struct Game {
     pub world: World,
     pub chroma: Chroma,
     pub input: Input,
@@ -58,23 +61,23 @@ pub struct Game{
 impl Game {
     pub fn new(window: &Window) -> Self {
         Self {
-            player: 0, 
-            timer: 0, 
-            clones: [0;5], 
+            player: 0,
+            timer: 0,
+            clones: [0; 5],
             clone_spawns: [Vec2::zero(); 5],
-            clone_commands: [vec![], vec![], vec![], vec![], vec![]], 
-            current_clone: 0, 
-            time: 0, 
-            clone_count: 0, 
+            clone_commands: [vec![], vec![], vec![], vec![], vec![]],
+            current_clone: 0,
+            time: 0,
+            clone_count: 0,
             world: World::new(),
             chroma: pollster::block_on(Chroma::new(SCREEN_WIDTH, SCREEN_HEIGHT, &window)),
             input: Input::none(),
-            delta_time: 0
+            delta_time: 0,
         }
     }
 }
 
-#[cfg_attr(target_arch="wasm32", wasm_bindgen(start))]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn run() {
     cfg_if::cfg_if! {
         if #[cfg(target_arch = "wasm32")] {
@@ -83,23 +86,27 @@ pub fn run() {
         } else {
             env_logger::init();
         }
-    }    
+    }
 
     let event_loop = EventLoop::new();
 
     let window = WindowBuilder::new()
         .with_title("Awaken")
-        .with_inner_size(PhysicalSize { width: WINDOW_WIDTH, height: WINDOW_HEIGHT})
+        .with_inner_size(PhysicalSize {
+            width: WINDOW_WIDTH,
+            height: WINDOW_HEIGHT,
+        })
         .with_resizable(false)
         .build(&event_loop)
         .unwrap();
 
-    #[cfg(target_arch = "wasm32")] {
+    #[cfg(target_arch = "wasm32")]
+    {
         // Winit prevents sizing with CSS, so we have to set
         // the size manually when on web.
         use winit::dpi::PhysicalSize;
         window.set_inner_size(PhysicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT));
-        
+
         use winit::platform::web::WindowExtWebSys;
         web_sys::window()
             .and_then(|win| win.document())
@@ -121,7 +128,7 @@ pub fn run() {
     player::create(&mut game, 0);
 
     let mut winit = WinitInputHelper::new();
-    
+
     let mut last_tick = instant::Instant::now();
     let mut tick_accumultor: u128 = 0;
 
@@ -137,14 +144,13 @@ pub fn run() {
             update(&mut game);
 
             fixed_tick_manager(&mut game, &mut tick_accumultor);
-        
+
             render::draw(&mut game);
         }
     });
 }
 
 fn update(game: &mut Game) {
-    println!("FPS: {} ", {1000.0 / game.delta_time as f32 });
     animation::update(game);
     player::update(game);
     camera::update(game);
