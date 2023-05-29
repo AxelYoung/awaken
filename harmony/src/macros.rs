@@ -119,11 +119,14 @@ macro_rules! iterate_entities_with_id {
     // This matches any number of mutable components greater than one
     ($world:expr, ($($mut_components:ident),*), $function:expr) => {{
         $(
-            let mut mut_components_vec = $world.borrow_components_mut::<$mut_components>().unwrap();
+            let mut mut_components_vec = match $world.borrow_components_mut::<$mut_components>() {
+                Some(vec) => vec,
+                None => return
+            };
             let $mut_components = mut_components_vec.iter_mut();
         )*
 
-        let iter = multizip(($($mut_components),*));
+        let iter = itertools::multizip(($($mut_components),*));
         let iter = iter.enumerate().filter_map(|(id, ($($mut_components),*))| Some(((id, $($mut_components.as_mut()?),*))));
 
         for (id, $($mut_components),*) in iter {

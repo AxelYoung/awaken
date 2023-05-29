@@ -1,25 +1,25 @@
-[] clone trails
-[] highlight currently controlled clone
-
-[] certain items being persistent through loops?
-[] color specific buttons 
-[] keys
-[] hazard
-
-[] music
-[] sounds
-
-[] lighting system
-[] raycasting system
-
-[] trail renderer
-[] particles
+[X] highlight currently controlled clone
 
 [] text display / UI
-
+[] lighting system
+[] raycasting system
+[] fix transparency issues
+[] switch between clones 
+[] 10 levels
+[] keys
+[] music
+[] sounds
+[] particles
+[] certain items being persistent through loops?
+[] hazard
 [] animations that don't use Sprite (animating a float or vec)
 [] add components function (multiple components in one call)
 
+[x] tile based movement
+
+[x] trail renderer
+
+[x] color specific buttons 
 [x] switches
 [X] have png-to-pix run at compile time automatically
 [X] fix wasm build
