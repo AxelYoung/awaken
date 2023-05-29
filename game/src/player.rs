@@ -1,5 +1,7 @@
 use harmony::*;
 
+use super::trails::Trail;
+
 use super::common::Position;
 
 use super::movement::Moveable;
@@ -12,17 +14,31 @@ use super::common::Cell;
 use super::math::Vec2i;
 use super::collision::check_collision;
 
+use super::clones::{Clone, Playback};
+
 pub struct Player {
-   pub moved: bool
+   pub moved: bool,
+   pub playback: Vec<Cell>,
+   pub color: u8
+}
+
+impl Player {
+   pub fn new() -> Self {
+      Self {
+         moved: false,
+         playback: vec![],
+         color: 0
+      }
+   }
 }
 
 pub fn create(game: &mut Game) {
    let player = game.world.new_entity();
-   let cell = Cell::new(24, 6);
-   game.world.add_component_to_entity(player, cell);
-   game.world.add_component_to_entity(player, cell.to_position());
+   let spawn_cell = game.clone_spawns[0];
+   game.world.add_component_to_entity(player, spawn_cell);
+   game.world.add_component_to_entity(player, spawn_cell.to_position());
    game.world.add_component_to_entity(player, Sprite::new(0, 0, 100));
-   game.world.add_component_to_entity(player, Player {moved: false});
+   game.world.add_component_to_entity(player, Player::new());
    game.world.add_component_to_entity(player, Moveable {
       start_cell: Cell::new(0, 0),
       end_cell: Cell::new(0, 0),
@@ -30,33 +46,41 @@ pub fn create(game: &mut Game) {
       accumulator: 0,
       moving: false
    });
+   game.world.add_component_to_entity(player, Trail::new(Sprite::new(4, 0, 5)));
 
    game.player = player;
 }
 
 pub fn update(game: &mut Game) {
-   set_movement_dir(game);
+   set_movement(game);
 }
 
-fn set_movement_dir(game: &mut Game) {
-   let dir = game.input.dir();
+fn set_movement(game: &mut Game) {
+   let direction = game.input.directon();
 
    let mut set_moveable = false;
 
-   iterate_entities_with_id!(game.world, 
-      [Moveable], (Player, Cell, Position, Sprite),
-      |id, moveable: &Moveable, player: &mut Player, 
-      cell: &mut Cell, position: &mut Position, sprite: &mut Sprite| 
+   iterate_entities!(game.world, 
+      [Moveable], (Player, Cell, Position, Sprite, Trail),
+      |moveable: &Moveable, player: &mut Player, cell: &mut Cell, 
+      position: &mut Position, sprite: &mut Sprite, trail: &mut Trail| 
    {
       if !moveable.moving {
-         if dir != Vec2i::zero() {
-            let goal_cell = Cell::new(cell.x + dir.x, cell.y + dir.y);
+         if direction != Vec2i::zero() {
+            let goal_cell = Cell::new(
+               cell.x + direction.x, 
+               cell.y + direction.y
+            );
             if !check_collision(game, goal_cell) {
                set_moveable = true;
 
+               player.playback.push(goal_cell);
+
                player.moved = true;
 
-               update_sprite_dir(dir, sprite);
+               update_sprite_dir(direction, sprite);
+
+               trail.sprite = Sprite::new(sprite.index_x + 4, sprite.index_y, 5);
             }
          }
       }
@@ -71,7 +95,7 @@ fn set_movement_dir(game: &mut Game) {
          cell = *game.world.get_component_from_entity_mut::<Cell>(game.player)
             .unwrap().as_mut().unwrap();
 
-         goal_cell = Cell::new(cell.x + dir.x, cell.y + dir.y);
+         goal_cell = Cell::new(cell.x + direction.x, cell.y + direction.y);
       }
 
       let moveable = 
@@ -81,6 +105,17 @@ fn set_movement_dir(game: &mut Game) {
       moveable.start_cell = cell;
       moveable.end_cell = goal_cell;
       moveable.moving = true;
+
+      let mut clones = vec![];
+
+      iterate_entities_with_id!(game.world, [Clone], |id, _| {
+         clones.push(id);
+      });
+
+      for clone in clones {
+         game.world.add_component_to_entity(clone, Playback{});
+      }
+
    }
 }
 

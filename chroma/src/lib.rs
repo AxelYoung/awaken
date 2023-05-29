@@ -1,8 +1,3 @@
-/* May not be necessary
-#[cfg(target_arch="wasm32")]
-use wasm_bindgen::prelude::*;
-*/
-
 mod camera;
 mod instance;
 mod pixel_renderer;
@@ -182,40 +177,45 @@ impl Chroma {
       }
 
       let output = self.surface.get_current_texture().unwrap();
-      let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
+      
+      let view = output.texture.create_view(
+         &wgpu::TextureViewDescriptor::default()
+      );
 
       {
-         let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("scaling_renderer_render_pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-               view: &view,
-               resolve_target: None,
-               ops: wgpu::Operations {
-                  load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
-                  store: true
-               }
-            })],
-            depth_stencil_attachment: None
-         });
+         let mut render_pass = encoder.begin_render_pass(
+            &wgpu::RenderPassDescriptor {
+               label: Some("scaling_renderer_render_pass"),
+               color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                  view: &view,
+                  resolve_target: None,
+                  ops: wgpu::Operations {
+                     load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+                     store: true
+                  }
+               })],
+               depth_stencil_attachment: None
+            }
+         );
          
-         rpass.set_pipeline(&self.upscale_renderer.pipeline);
+         render_pass.set_pipeline(&self.upscale_renderer.pipeline);
 
-         rpass.set_bind_group(
+         render_pass.set_bind_group(
             0, &self.upscale_renderer.diffuse_bind_group, &[]
          );
 
-         rpass.set_vertex_buffer(
+         render_pass.set_vertex_buffer(
             0, self.upscale_renderer.vertex_buffer.slice(..)
          );
 
-         rpass.set_scissor_rect(
+         render_pass.set_scissor_rect(
             self.upscale_renderer.clip_rect.0, 
             self.upscale_renderer.clip_rect.1, 
             self.upscale_renderer.clip_rect.2,
             self.upscale_renderer.clip_rect.3
          );
 
-         rpass.draw(0..3, 0..1);
+         render_pass.draw(0..3, 0..1);
       }
 
       self.queue.submit(iter::once(encoder.finish()));

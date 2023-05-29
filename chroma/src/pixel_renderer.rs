@@ -14,22 +14,33 @@ const SCREEN_HEIGHT: u32= 224;
 
 const VERTICES: &[Vertex] = &[
    Vertex {
-      position: [-32.0 / SCREEN_WIDTH as f32 - 2.0, 32.0 / SCREEN_HEIGHT as f32 - 2.0, 0.0],
+      position: [
+         -32.0 / SCREEN_WIDTH as f32 - 2.0, 
+         32.0 / SCREEN_HEIGHT as f32 - 2.0, 0.0
+      ],
       uvs: [0.0, 0.0],
    }, 
    Vertex {
-      position: [-32.0 / SCREEN_WIDTH as f32 - 2.0, -32.0 / SCREEN_HEIGHT as f32 - 2.0, 0.0],
+      position: [
+         -32.0 / SCREEN_WIDTH as f32 - 2.0, 
+         -32.0 / SCREEN_HEIGHT as f32 - 2.0, 0.0
+      ],
       uvs: [0.0, 1.0 / SPRITE_SHEET_HEIGHT as f32],
    }, 
    Vertex {
-      position: [32.0 / SCREEN_WIDTH as f32 - 2.0, -32.0 / SCREEN_HEIGHT as f32 - 2.0, 0.0],
+      position: [
+         32.0 / SCREEN_WIDTH as f32 - 2.0, 
+         -32.0 / SCREEN_HEIGHT as f32 - 2.0, 0.0
+      ],
       uvs: [1.0 / SPRITE_SHEET_WIDTH as f32, 1.0 / SPRITE_SHEET_HEIGHT as f32],
    }, 
    Vertex {
-      position: [32.0 / SCREEN_WIDTH as f32 - 2.0, 32.0 / SCREEN_HEIGHT as f32 - 2.0, 0.0],
-      uvs: [1.0 / SPRITE_SHEET_WIDTH as f32, 0.0 ],
+      position: [
+         32.0 / SCREEN_WIDTH as f32 - 2.0, 
+         32.0 / SCREEN_HEIGHT as f32 - 2.0, 0.0
+      ],
+      uvs: [1.0 / SPRITE_SHEET_WIDTH as f32, 0.0],
    }, 
-   // -2,-2 to 2,2 => 0,0 to 128, 112
 ];
 
 const INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];

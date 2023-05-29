@@ -20,8 +20,8 @@ pub fn update(game: &mut Game) {
 }
 
 fn move_entities(game: &mut Game) {
-   iterate_entities_with_id!(game.world, (Moveable, Position, Cell), 
-   |id, moveable: &mut Moveable, position: &mut Position, cell: &mut Cell| {
+   iterate_entities!(game.world, (Moveable, Position, Cell), 
+   |moveable: &mut Moveable, position: &mut Position, cell: &mut Cell| {
       if moveable.moving {
          let start_pos = moveable.start_cell.to_position();
          let end_pos = moveable.end_cell.to_position();

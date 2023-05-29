@@ -1,11 +1,11 @@
 #![allow(non_snake_case)]
 
 use chroma::*;
+use common::Cell;
 use harmony::*;
 
 use input::Input;
 use map_gen::{MAP_TILE_WIDTH, MAP_TILE_HEIGHT};
-use math::Vec2;
 use winit::{
    dpi::PhysicalSize,
    event_loop::EventLoop,
@@ -19,6 +19,7 @@ use wasm_bindgen::prelude::*;
 
 mod animation;
 mod camera;
+mod clones;
 mod common;
 mod input;
 mod map_gen;
@@ -27,6 +28,7 @@ mod render;
 mod player;
 mod collision;
 mod movement;
+mod trails;
 
 const TICK_DURATION: u128 = 20;
 
@@ -46,7 +48,7 @@ pub struct Game {
    time: u128,
 
    player: usize,
-   clone_spawns: [Vec2; 5],
+   pub clone_spawns: [Cell; 5],
 
    colliders: [[bool; MAP_TILE_HEIGHT]; MAP_TILE_WIDTH]
 }
@@ -55,7 +57,7 @@ impl Game {
    pub fn new(window: &Window) -> Self {
       Self {
          player: 0,
-         clone_spawns: [Vec2::zero(); 5],
+         clone_spawns: [Cell::new(0,0); 5],
          time: 0,
          world: World::new(),
          chroma: pollster::block_on(
@@ -145,6 +147,8 @@ fn update(game: &mut Game) {
    camera::update(game);
    player::update(game);
    movement::update(game);
+   clones::update(game);
+   trails::update(game);
 }
 
 fn fixed_tick_manager(game: &mut Game, tick_accumulator: &mut u128) {

@@ -153,7 +153,7 @@ pub fn create(game: &mut Game) {
 fn create_player_spawn(game: &mut Game, cell: Cell, clone: usize) {
    let player_spawn = game.world.new_entity();
 
-   game.clone_spawns[clone] = cell.to_position().value;
+   game.clone_spawns[clone] = cell;
 
    game.world.add_component_to_entity(player_spawn, cell.to_position());
 

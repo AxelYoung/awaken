@@ -1,3 +1,5 @@
+use std::ops::Sub;
+
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub struct Vec2 {
    pub x: f32,
@@ -6,13 +8,12 @@ pub struct Vec2 {
 
 impl Vec2 {
    pub fn new(x: f32, y: f32) -> Self { Self { x, y } }
-   /*
+   
    pub fn dist(&self, comp: Vec2) -> f32 {
       let dx = comp.x - self.x;
       let dy = comp.y - self.y;
       (dx * dx + dy * dy).sqrt()
    }
-    */
 
    pub fn zero() -> Self { Self { x: 0.0, y: 0.0 } }
 }
@@ -48,4 +49,12 @@ pub struct Vec2i {
 impl Vec2i {
    pub fn new(x: i32, y: i32) -> Self { Self {x, y} }
    pub fn zero() -> Self { Self { x: 0, y: 0 } }
+}
+
+impl Sub<Vec2i> for Vec2i {
+   type Output = Vec2i;
+
+   fn sub(self, rhs: Vec2i) -> Self::Output {
+       Vec2i::new(self.x - rhs.x, self.y - rhs.y)
+   }
 }
