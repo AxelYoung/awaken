@@ -19,16 +19,21 @@ macro_rules! iterate_entities {
 
    // This matches any number of immutable components greater than one
    ($world:expr, [$($components:ident),*], $function:expr) => {{
-      $(
-         let component_vec = $world.borrow_components::<$components>().unwrap();
-         let $components = component_vec.iter();
-      )*
-
-      let iter = itertools::multizip(($($components),*));
-      let filtered_iter = iter.filter_map(|($($components),*)| Some((($($components.as_ref()?),*))));
-
-      for ($($components),*) in filtered_iter {
-         $function($($components),*);
+      'macro_logic: {
+         $(
+            let component_vec = match $world.borrow_components::<$components>() {
+               Some(vec) => vec,
+               None => break 'macro_logic
+            };
+            let $components = component_vec.iter();
+         )*
+   
+         let iter = itertools::multizip(($($components),*));
+         let filtered_iter = iter.filter_map(|($($components),*)| Some((($($components.as_ref()?),*))));
+   
+         for ($($components),*) in filtered_iter {
+            $function($($components),*);
+         }
       }
    }};
 
@@ -73,7 +78,7 @@ macro_rules! iterate_entities {
    ($world:expr, [$($components:ident),*], ($($mut_components:ident),*), $function:expr) => {{
       'macro_logic : {
          $(
-            let component_vec = match $world.borrow_components_mut::<$components>() {
+            let component_vec = match $world.borrow_components::<$components>() {
                Some(vec) => vec,
                None => break 'macro_logic
             };

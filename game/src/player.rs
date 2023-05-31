@@ -1,6 +1,6 @@
 use harmony::*;
 
-use super::trails::Trail;
+use crate::clones;
 
 use super::common::Position;
 
@@ -46,13 +46,13 @@ pub fn create(game: &mut Game) {
       accumulator: 0,
       moving: false
    });
-   game.world.add_component_to_entity(player, Trail::new(Sprite::new(4, 0, 5)));
 
    game.player = player;
 }
 
 pub fn update(game: &mut Game) {
    set_movement(game);
+   skip(game);
 }
 
 fn set_movement(game: &mut Game) {
@@ -61,9 +61,9 @@ fn set_movement(game: &mut Game) {
    let mut set_moveable = false;
 
    iterate_entities!(game.world, 
-      [Moveable], (Player, Cell, Position, Sprite, Trail),
+      [Moveable], (Player, Cell, Position, Sprite),
       |moveable: &Moveable, player: &mut Player, cell: &mut Cell, 
-      position: &mut Position, sprite: &mut Sprite, trail: &mut Trail| 
+      position: &mut Position, sprite: &mut Sprite| 
    {
       if !moveable.moving {
          if direction != Vec2i::zero() {
@@ -79,8 +79,6 @@ fn set_movement(game: &mut Game) {
                player.moved = true;
 
                update_sprite_dir(direction, sprite);
-
-               trail.sprite = Sprite::new(sprite.index_x + 4, sprite.index_y, 5);
             }
          }
       }
@@ -115,7 +113,20 @@ fn set_movement(game: &mut Game) {
       for clone in clones {
          game.world.add_component_to_entity(clone, Playback{});
       }
+   }
+}
 
+fn skip(game: &mut Game) {
+   if game.input.skip_pressed {
+      let mut clones = vec![];
+
+      iterate_entities_with_id!(game.world, [Clone], |id, _| {
+         clones.push(id);
+      });
+   
+      for clone in clones {
+         game.world.add_component_to_entity(clone, Playback{});
+      }
    }
 }
 

@@ -2,7 +2,7 @@ use itertools::iproduct;
 
 use crate::Game;
 
-use super::common::Position;
+use super::buttons::{Button, ButtonType};
 use super::math::{Vec2, Vec2i};
 use super::common::Cell;
 use super::render::{Sprite, SPRITE_SIZE, SPRITE_CENTER};
@@ -28,11 +28,12 @@ const MAP: &[&[&[&[Tile]]]] = &[
 ];
 
 #[derive(PartialEq)]
-enum Tile {
+enum Tile<'a> {
    SW,
    SF,
    PB,
    PL(usize, u32),
+   BT(ButtonType, &'a [Cell]),
    EM
 }
 
@@ -43,6 +44,12 @@ const PG : Tile = PL(1, 42);
 const PY : Tile = PL(2, 43);
 const PR : Tile = PL(3, 44);
 const PP : Tile = PL(4, 45);
+
+const BB : Tile = BT(ButtonType::Color(0), &[
+   Cell { value: Vec2i {x: 7, y: 0} },
+   Cell { value: Vec2i {x: 8, y: 0} }
+   ]
+);
 
 const EMPTY_ROOM: &[&[Tile]] = &[
    &[EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM,EM],
@@ -66,7 +73,7 @@ const START_ROOM: &[&[Tile]] = &[
    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
-   &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
+   &[SW,BB,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
    &[SW,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SF,SW],
@@ -144,13 +151,64 @@ pub fn create(game: &mut Game) {
          SW => { create_stone_wall(game, cell) },
          SF => { create_stone_floor(game, cell) },
          PB => { create_push_block(game, cell) },
+         BT(button_type, cells) => {
+            let mut relative_cells = vec![]; 
+            for cell in *cells {
+               relative_cells.push(
+                  get_tile_cell(
+                     room_x, room_y, 
+                     cell.x as usize, cell.y as usize
+                  )
+               );
+            }
+            create_button(game, cell, button_type.clone(), relative_cells) 
+         },
          EM => { continue; },
          PL(clone, _) => { create_player_spawn(game, cell, *clone) }
       }
    }
 }
 
+fn create_button(
+   game: &mut Game, cell: Cell, button_type: ButtonType, cells: Vec<Cell>
+) {
+   create_stone_floor(game, cell);
+
+   let button = game.world.new_entity();
+
+   game.world.add_component_to_entity(button, cell);
+   game.world.add_component_to_entity(button, cell.to_position());
+   game.world.add_component_to_entity(button, button_sprite(button_type));
+
+   let mut cells_entities = vec![];
+
+   for cell in cells {
+      let cell_entity = game.world.new_entity();
+
+      game.world.add_component_to_entity(cell_entity, Sprite::new(2,5,1));
+      game.world.add_component_to_entity(cell_entity, cell);
+      game.world.add_component_to_entity(cell_entity, cell.to_position());
+      game.colliders[cell.x as usize][cell.y as usize] = true;
+
+      cells_entities.push(cell_entity);
+   }
+
+   game.world.add_component_to_entity(button, 
+      Button::new(button_type, cells_entities)
+   );
+}
+
+fn button_sprite(button_type: ButtonType) -> Sprite {
+   match button_type {
+      ButtonType::Any => { Sprite::new(6, 7, 1) },
+      ButtonType::AnyColor => { Sprite::new(6, 7, 1) },
+      ButtonType::Color(col) => { Sprite::new(col as u32, 7, 1) }
+   }
+}
+
 fn create_player_spawn(game: &mut Game, cell: Cell, clone: usize) {
+   create_stone_floor(game, cell);
+
    let player_spawn = game.world.new_entity();
 
    game.clone_spawns[clone] = cell;
@@ -158,7 +216,7 @@ fn create_player_spawn(game: &mut Game, cell: Cell, clone: usize) {
    game.world.add_component_to_entity(player_spawn, cell.to_position());
 
    game.world.add_component_to_entity(
-      player_spawn, Sprite::new(clone as u32, 6, 0)
+      player_spawn, Sprite::new(clone as u32, 6, 1)
    );
 }
 

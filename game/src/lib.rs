@@ -18,6 +18,7 @@ use winit_input_helper::WinitInputHelper;
 use wasm_bindgen::prelude::*;
 
 mod animation;
+mod buttons;
 mod camera;
 mod clones;
 mod common;
@@ -28,7 +29,6 @@ mod render;
 mod player;
 mod collision;
 mod movement;
-mod trails;
 
 const TICK_DURATION: u128 = 20;
 
@@ -148,7 +148,7 @@ fn update(game: &mut Game) {
    player::update(game);
    movement::update(game);
    clones::update(game);
-   trails::update(game);
+   buttons::update(game);
 }
 
 fn fixed_tick_manager(game: &mut Game, tick_accumulator: &mut u128) {
@@ -161,4 +161,5 @@ fn fixed_tick_manager(game: &mut Game, tick_accumulator: &mut u128) {
 }
 
 fn fixed_update(game: &mut Game) {
+   clones::fixed_update(game);
 }

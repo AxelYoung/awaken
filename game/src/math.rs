@@ -1,5 +1,3 @@
-use std::ops::Sub;
-
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub struct Vec2 {
    pub x: f32,
@@ -51,7 +49,18 @@ impl Vec2i {
    pub fn zero() -> Self { Self { x: 0, y: 0 } }
 }
 
-impl Sub<Vec2i> for Vec2i {
+impl std::ops::Add<Vec2i> for Vec2i {
+   type Output = Vec2i;
+   
+   fn add(self, rhs: Vec2i) -> Self::Output {
+      Self {
+         x: self.x + rhs.x,
+         y: self.y + rhs.y
+      }
+   }
+}
+
+impl std::ops::Sub<Vec2i> for Vec2i {
    type Output = Vec2i;
 
    fn sub(self, rhs: Vec2i) -> Self::Output {

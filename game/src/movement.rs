@@ -25,10 +25,15 @@ fn move_entities(game: &mut Game) {
       if moveable.moving {
          let start_pos = moveable.start_cell.to_position();
          let end_pos = moveable.end_cell.to_position();
-   
+         
+         game.colliders[cell.value.x as usize][cell.value.y as usize] = false;
+
+         cell.value = moveable.end_cell.value;
+
+         game.colliders[cell.value.x as usize][cell.value.y as usize] = true;
+
          if moveable.accumulator >= moveable.duration {
             position.value = end_pos.value;
-            cell.value = moveable.end_cell.value;
             moveable.accumulator = 0;
             moveable.moving = false;
          } else {

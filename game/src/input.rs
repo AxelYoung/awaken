@@ -8,16 +8,18 @@ pub struct Input {
    pub down_pressed: bool,
    pub left_pressed: bool,
    pub right_pressed: bool,
-   pub loop_pressed: bool
+   pub loop_pressed: bool,
+   pub skip_pressed: bool
 }
 
 impl Input {
    pub fn new (input: &mut WinitInputHelper, control_flow: &mut ControlFlow) -> Self {
-      let up_pressed = input.key_held(VirtualKeyCode::Up);
-      let down_pressed = input.key_held(VirtualKeyCode::Down);
-      let left_pressed = input.key_held(VirtualKeyCode::Left);
-      let right_pressed = input.key_held(VirtualKeyCode::Right);
+      let up_pressed = input.key_held(VirtualKeyCode::W);
+      let down_pressed = input.key_held(VirtualKeyCode::R);
+      let left_pressed = input.key_held(VirtualKeyCode::A);
+      let right_pressed = input.key_held(VirtualKeyCode::S);
       let loop_pressed = input.key_pressed(VirtualKeyCode::Space);
+      let skip_pressed = input.key_pressed(VirtualKeyCode::LShift);
    
       if input.key_released(VirtualKeyCode::Escape) 
       || input.close_requested()
@@ -30,7 +32,8 @@ impl Input {
          down_pressed,
          left_pressed,
          right_pressed,
-         loop_pressed
+         loop_pressed,
+         skip_pressed
       }
    }
 
@@ -48,7 +51,8 @@ impl Input {
          down_pressed: false,
          left_pressed: false,
          right_pressed: false,
-         loop_pressed: false
+         loop_pressed: false,
+         skip_pressed: false
       }
    }
 }
