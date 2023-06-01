@@ -15,9 +15,9 @@ pub struct Input {
 impl Input {
    pub fn new (input: &mut WinitInputHelper, control_flow: &mut ControlFlow) -> Self {
       let up_pressed = input.key_held(VirtualKeyCode::W);
-      let down_pressed = input.key_held(VirtualKeyCode::R);
+      let down_pressed = input.key_held(VirtualKeyCode::S);
       let left_pressed = input.key_held(VirtualKeyCode::A);
-      let right_pressed = input.key_held(VirtualKeyCode::S);
+      let right_pressed = input.key_held(VirtualKeyCode::D);
       let loop_pressed = input.key_pressed(VirtualKeyCode::Space);
       let skip_pressed = input.key_pressed(VirtualKeyCode::LShift);
    
