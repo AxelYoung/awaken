@@ -64,24 +64,38 @@ fn check_buttons(game: &mut Game) {
          ButtonType::AnyColor => {
             iterate_entities!(game.world, [Cell, Player], 
             |player_cell: &Cell, _| {
-               pressed = player_cell == button_cell;
+               if player_cell == button_cell {
+                  pressed = true;
+               }
             });
             iterate_entities!(game.world, [Cell, Clone], 
-               |player_cell: &Cell, _| {
-                  pressed = player_cell == button_cell;
+            |clone_cell: &Cell, _| {
+               if clone_cell == button_cell {
+                  pressed = true;
+               }
             });
+            match game.colliders[button_cell.x as usize][button_cell.y as usize] {
+               Collider::Box(_, _) => {
+                  pressed = true;
+               },
+               _ => {}
+            }
          }
          ButtonType::Color(color) => {
             iterate_entities!(game.world, [Cell, Player], 
             |player_cell: &Cell, player: &Player| {
                if player.color == color {
-                  pressed = player_cell == button_cell;
+                  if player_cell == button_cell {
+                     pressed = true;
+                  }
                }
             });
             iterate_entities!(game.world, [Cell, Clone], 
-            |player_cell: &Cell, clone: &Clone| {
+            |clone_cell: &Cell, clone: &Clone| {
                if clone.color == color {
-                  pressed = player_cell == button_cell;
+                  if clone_cell == button_cell {
+                     pressed = true;
+                  }
                }
             });
             match game.colliders[button_cell.x as usize][button_cell.y as usize] {

@@ -6,7 +6,7 @@ use super::common::Position;
 pub const SPRITE_SIZE: u32 = 16;
 pub const SPRITE_CENTER: f32 = SPRITE_SIZE as f32 / 2.0;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Sprite {
    pub index_x: u32,
    pub index_y: u32,

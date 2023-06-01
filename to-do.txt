@@ -1,8 +1,6 @@
 [X] highlight currently controlled clone
 
-[] text display / UI
-[] lighting system
-[] raycasting system
+
 [] fix transparency issues
 [] switch between clones 
 [] 10 levels
@@ -14,6 +12,10 @@
 [] hazard
 [] animations that don't use Sprite (animating a float or vec)
 [] add components function (multiple components in one call)
+
+[] text display / UI
+[] lighting system
+[] raycasting system
 
 [x] tile based movement
 

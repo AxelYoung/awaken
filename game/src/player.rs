@@ -38,7 +38,7 @@ impl Player {
 
 pub fn create(game: &mut Game) {
    let player = game.world.new_entity();
-   let spawn_cell = game.clone_spawns[0];
+   let spawn_cell = game.clone_spawns[0][0];
    game.world.add_component_to_entity(player, spawn_cell);
    game.world.add_component_to_entity(player, spawn_cell.to_position());
    game.world.add_component_to_entity(player, Sprite::new(0, 0, 100));
@@ -142,7 +142,16 @@ fn set_movement(game: &mut Game) {
                      update_sprite_dir(direction, sprite);
       
                      goal_cell = new_cell;
-                  }                  
+                  } else {
+                     player.moved = true;
+                     set_moveable = true;
+      
+                     player.playback_dir.push(direction);
+                     
+                     update_sprite_dir(direction, sprite);
+      
+                     goal_cell = cell.clone();
+                  }
                }
             }
          }

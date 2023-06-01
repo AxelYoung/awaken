@@ -31,6 +31,7 @@ mod render;
 mod player;
 mod collision;
 mod movement;
+mod win;
 
 const TICK_DURATION: u128 = 20;
 
@@ -50,18 +51,19 @@ pub struct Game {
    time: u128,
 
    player: usize,
-   pub clone_spawns: [Cell; 5],
-   pub clones: [usize; 5],
-   pub current_clone: usize,
+   pub clone_spawns: [[Cell; 5]; 10],
+   pub clones: [Option<usize>; 5],
 
-   colliders: [[Collider; MAP_TILE_HEIGHT]; MAP_TILE_WIDTH]
+   colliders: [[Collider; MAP_TILE_HEIGHT]; MAP_TILE_WIDTH],
+
+   pub current_room: usize
 }
 
 impl Game {
    pub fn new(window: &Window) -> Self {
       Self {
          player: 0,
-         clone_spawns: [Cell::new(0,0); 5],
+         clone_spawns: [[Cell::new(0,0); 5]; 10],
          time: 0,
          world: World::new(),
          chroma: pollster::block_on(
@@ -70,8 +72,8 @@ impl Game {
          input: Input::none(),
          delta_time: 0,
          colliders: [[Collider::Empty; MAP_TILE_HEIGHT]; MAP_TILE_WIDTH],
-         clones: [0; 5],
-         current_clone: 0
+         clones: [None; 5],
+         current_room: 0
       }
    }
 }
@@ -155,6 +157,7 @@ fn update(game: &mut Game) {
    movement::update(game);
    clones::update(game);
    buttons::update(game);
+   win::update(game);
 }
 
 fn fixed_tick_manager(game: &mut Game, tick_accumulator: &mut u128) {

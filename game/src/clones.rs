@@ -18,9 +18,11 @@ use super::render::Sprite;
 
 use super::math::Vec2i;
 
+const MAX_PLAYERS : [u32; 6]=  [5, 5, 5, 2, 4, 1];
+
 pub struct Clone {
    pub color: u8,
-   playback_dir: Vec<Vec2i>,
+   pub playback_dir: Vec<Vec2i>,
    pub current_move: usize,
    pub paths: Vec<usize>
 }
@@ -38,190 +40,188 @@ pub fn fixed_update(game: &mut Game) {
 }
 
 pub fn switch_clone(game: &mut Game) {
-   if game.input.loop_pressed {
+   if let Some(loop_num) = game.input.loop_num() {
+      switch_to_clone(game, loop_num);
+   }
+}
 
-      let mut clone_count = 0;
+pub fn switch_to_clone(game: &mut Game, loop_num: usize) {
+   
+   if loop_num >= MAX_PLAYERS[game.current_room] as usize { return; }
 
-      let playback_dir;
+   let player_clone;
+   let playback_dir;
 
-      {
-         let player = 
+   {
+      let player = 
+      game.world.get_component_from_entity_mut::<Player>(game.player)
+      .unwrap().as_mut().unwrap();
+
+      playback_dir = player.playback_dir.clone();
+      player_clone = player.color;
+
+      player.playback_dir.clear();
+   }
+
+   let mut clones = vec![];
+
+   iterate_entities_with_id!(game.world, [Clone], |id, _| {
+      clones.push(id);
+   });
+
+   for clone in clones {
+      game.world.remove_component_from_entity::<Playback>(clone);
+
+      let clone_color = {
+         let clone_component = 
+            game.world.get_component_from_entity_mut::<Clone>(clone)
+            .unwrap().as_mut().unwrap();
+
+         clone_component.color
+      };
+      
+      let moveable = 
+         game.world.get_component_from_entity_mut::<Moveable>(clone)
+         .unwrap().as_mut().unwrap();
+
+      moveable.start_cell = game.clone_spawns[game.current_room][clone_color as usize];
+      moveable.end_cell = game.clone_spawns[game.current_room][clone_color as usize];
+   }
+
+   let clone_trails = vec![];
+
+   iterate_entities!(game.world, (Clone, Position, Cell),
+      |clone: &mut Clone, position: &mut Position, cell: &mut Cell| {
+         clone.current_move = 0;
+         game.colliders[cell.x as usize][cell.y as usize] = Collider::Empty;
+         let spawn = game.clone_spawns[game.current_room][clone.color as usize];
+         *cell = spawn;
+         *position = cell.to_position();
+      }
+   );
+
+   for trail in clone_trails {
+      let trail_sprite = 
+         game.world.get_component_from_entity_mut::<Sprite>(trail)
+         .unwrap().as_mut().unwrap();
+
+      trail_sprite.render = true;
+   }
+
+   let clone = game.world.new_entity();
+
+   let mut paths = vec![];
+
+   for _ in 0..playback_dir.len() {
+      paths.push(game.world.new_entity());
+   }
+
+   game.world.add_component_to_entity(clone, 
+      Clone {
+         color: player_clone,
+         playback_dir,
+         current_move: 0,
+         paths
+      }
+   );
+
+   game.world.add_component_to_entity(clone, 
+      Sprite::new(0, player_clone as u32, 100)
+   );
+
+   let start_cell = game.clone_spawns[game.current_room][player_clone as usize];
+
+   game.world.add_component_to_entity(clone, 
+      start_cell
+   );
+
+   game.world.add_component_to_entity(clone, 
+      start_cell.to_position()
+   );
+
+   game.world.add_component_to_entity(clone, 
+      Moveable {
+         start_cell: start_cell,
+         end_cell: start_cell,
+         duration: 150,
+         accumulator: 0,
+         moving: false,
+         box_moveable: false
+      }
+   );
+
+   game.clones[player_clone as usize] = Some(clone);
+
+   
+   if let Some(clone) = game.clones[loop_num as usize] {
+      let old_clone = 
+         game.world.get_component_from_entity_mut::<Clone>
+         (clone).unwrap().as_mut().unwrap();
+
+      let old_paths = old_clone.paths.clone();
+
+      for path in old_paths {
+         game.world.delete_entity(path);
+      }
+
+      game.world.delete_entity(clone);
+   }
+
+   let player_color;
+
+   {
+      let player = 
          game.world.get_component_from_entity_mut::<Player>(game.player)
          .unwrap().as_mut().unwrap();
 
-         playback_dir = player.playback_dir.clone();
+      player.color = loop_num as u8;
 
-         player.playback_dir.clear();
-      }
+      player_color = player.color;
+   }
 
-      let mut clones = vec![];
+   let player_sprite =
+      game.world.get_component_from_entity_mut::<Sprite>(game.player)
+      .unwrap().as_mut().unwrap();
 
-      iterate_entities_with_id!(game.world, [Clone], |id, _| {
-         clones.push(id);
-      });
+   player_sprite.index_y = player_color.into();
 
-      for clone in clones {
-         game.world.remove_component_from_entity::<Playback>(clone);
+   let player_cell = 
+      game.world.get_component_from_entity_mut::<Cell>(game.player)
+      .unwrap().as_mut().unwrap();
 
-         let clone_color = {
-            let clone_component = 
-               game.world.get_component_from_entity_mut::<Clone>(clone)
-               .unwrap().as_mut().unwrap();
+   game.colliders[player_cell.x as usize][player_cell.y as usize] = 
+      Collider::Empty;
 
-            clone_component.color
-         };
-         
-         let moveable = 
-            game.world.get_component_from_entity_mut::<Moveable>(clone)
-            .unwrap().as_mut().unwrap();
+   *player_cell = game.clone_spawns[game.current_room][player_color as usize];
 
-         moveable.start_cell = game.clone_spawns[clone_color as usize];
-         moveable.end_cell = game.clone_spawns[clone_color as usize];
-      }
+   let player_position =
+      game.world.get_component_from_entity_mut::<Position>(game.player)
+      .unwrap().as_mut().unwrap();
 
-      let clone_trails = vec![];
+   *player_position = game.clone_spawns[game.current_room][player_color as usize].to_position();
 
-      iterate_entities!(game.world, (Clone, Position, Cell),
-         |clone: &mut Clone, position: &mut Position, cell: &mut Cell| {
-            clone.current_move = 0;
-            game.colliders[cell.x as usize][cell.y as usize] = Collider::Empty;
-            let spawn = game.clone_spawns[clone.color as usize];
-            *cell = spawn;
-            *position = cell.to_position();
-            clone_count += 1;
-         }
-      );
+   let mut old_boxes = vec![];
+   let mut new_boxes = vec![];
 
-      for trail in clone_trails {
-         let trail_sprite = 
-            game.world.get_component_from_entity_mut::<Sprite>(trail)
-            .unwrap().as_mut().unwrap();
+   iterate_entities!(game.world, [PushBox], (Position, Cell),
+   |box_component: &PushBox, position: &mut Position, cell: &mut Cell| {
+      old_boxes.push(cell.clone());
 
-         trail_sprite.render = true;
-      }
+      cell.value = box_component.start_cell.value;
+      position.value = box_component.start_cell.to_position().value;
 
-      let clone = game.world.new_entity();
+      new_boxes.push(box_component.start_cell);
+   });
 
-      let mut paths = vec![];
+   let mut box_colliders = vec![];
 
-      for _ in 0..playback_dir.len() {
-         paths.push(game.world.new_entity());
-      }
+   for old_box in old_boxes {
+      box_colliders.push(game.colliders[old_box.x as usize][old_box.y as usize]);
+      game.colliders[old_box.x as usize][old_box.y as usize] = Collider::Empty;
+   }
 
-      game.world.add_component_to_entity(clone, 
-         Clone {
-            color: game.current_clone as u8,
-            playback_dir,
-            current_move: 0,
-            paths
-         }
-      );
-
-      game.world.add_component_to_entity(clone, 
-         Sprite::new(0, game.current_clone as u32, 100)
-      );
-
-      let start_cell =  game.clone_spawns[game.current_clone];
-
-      game.world.add_component_to_entity(clone, 
-         start_cell
-      );
-
-      game.world.add_component_to_entity(clone, 
-         start_cell.to_position()
-      );
-
-      game.world.add_component_to_entity(clone, 
-         Moveable {
-            start_cell: start_cell,
-            end_cell: start_cell,
-            duration: 150,
-            accumulator: 0,
-            moving: false,
-            box_moveable: false
-         }
-      );
-
-      game.clones[game.current_clone] = clone;
-
-      game.current_clone += 1;
-      clone_count += 1;
-
-      if clone_count > 0 {
-         if game.current_clone == 5 {
-            game.current_clone = 0;
-         }
-         if clone_count > 4 {
-            let old_clone = 
-               game.world.get_component_from_entity_mut::<Clone>
-               (game.clones[game.current_clone]).unwrap().as_mut().unwrap();
-
-            let old_paths = old_clone.paths.clone();
-
-            for path in old_paths {
-               game.world.delete_entity(path);
-            }
-
-            game.world.delete_entity(game.clones[game.current_clone]);
-         }   
-      }
-
-      let player_color;
-
-      {
-         let player = 
-         game.world.get_component_from_entity_mut::<Player>(game.player)
-         .unwrap().as_mut().unwrap();
-
-         player.color = game.current_clone as u8;
-
-         player_color = player.color;
-      }
-
-      let player_sprite =
-         game.world.get_component_from_entity_mut::<Sprite>(game.player)
-         .unwrap().as_mut().unwrap();
-
-      player_sprite.index_y = player_color.into();
-
-      let player_cell = 
-         game.world.get_component_from_entity_mut::<Cell>(game.player)
-         .unwrap().as_mut().unwrap();
-
-      game.colliders[player_cell.x as usize][player_cell.y as usize] = 
-         Collider::Empty;
-
-      *player_cell = game.clone_spawns[player_color as usize];
-
-      let player_position =
-         game.world.get_component_from_entity_mut::<Position>(game.player)
-         .unwrap().as_mut().unwrap();
-
-      *player_position = game.clone_spawns[player_color as usize].to_position();
-
-      let mut old_boxes = vec![];
-      let mut new_boxes = vec![];
-
-      iterate_entities!(game.world, [PushBox], (Position, Cell),
-      |box_component: &PushBox, position: &mut Position, cell: &mut Cell| {
-         old_boxes.push(cell.clone());
-
-         cell.value = box_component.start_cell.value;
-         position.value = box_component.start_cell.to_position().value;
-
-         new_boxes.push(box_component.start_cell);
-      });
-
-      let mut box_colliders = vec![];
-
-      for old_box in old_boxes {
-         box_colliders.push(game.colliders[old_box.x as usize][old_box.y as usize]);
-         game.colliders[old_box.x as usize][old_box.y as usize] = Collider::Empty;
-      }
-
-      for i in 0..new_boxes.len() {
-         game.colliders[new_boxes[i].x as usize][new_boxes[i].y as usize] = box_colliders[i];
-      }
+   for i in 0..new_boxes.len() {
+      game.colliders[new_boxes[i].x as usize][new_boxes[i].y as usize] = box_colliders[i];
    }
 }
 
