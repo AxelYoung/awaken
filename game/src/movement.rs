@@ -1,5 +1,7 @@
 use harmony::*;
 
+use crate::collision::Collider;
+
 use super::common::Cell;
 
 use super::common::Position;
@@ -12,7 +14,8 @@ pub struct Moveable {
    pub end_cell: Cell,
    pub duration: u128,
    pub accumulator: u128,
-   pub moving: bool
+   pub moving: bool,
+   pub box_moveable: bool
 }
 
 pub fn update(game: &mut Game) {
@@ -26,11 +29,15 @@ fn move_entities(game: &mut Game) {
          let start_pos = moveable.start_cell.to_position();
          let end_pos = moveable.end_cell.to_position();
          
-         game.colliders[cell.value.x as usize][cell.value.y as usize] = false;
+         let collider = game.colliders[cell.value.x as usize][cell.value.y as usize];
+
+         game.colliders[cell.value.x as usize][cell.value.y as usize] = 
+            if moveable.box_moveable { Collider::Solid } else { Collider::Empty };
 
          cell.value = moveable.end_cell.value;
 
-         game.colliders[cell.value.x as usize][cell.value.y as usize] = true;
+         game.colliders[cell.value.x as usize][cell.value.y as usize] = 
+            if moveable.box_moveable { collider } else { Collider::Solid };
 
          if moveable.accumulator >= moveable.duration {
             position.value = end_pos.value;

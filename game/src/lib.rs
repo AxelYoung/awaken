@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
 use chroma::*;
+use collision::Collider;
 use common::Cell;
 use harmony::*;
 
@@ -18,6 +19,7 @@ use winit_input_helper::WinitInputHelper;
 use wasm_bindgen::prelude::*;
 
 mod animation;
+mod boxes;
 mod buttons;
 mod camera;
 mod clones;
@@ -49,8 +51,10 @@ pub struct Game {
 
    player: usize,
    pub clone_spawns: [Cell; 5],
+   pub clones: [usize; 5],
+   pub current_clone: usize,
 
-   colliders: [[bool; MAP_TILE_HEIGHT]; MAP_TILE_WIDTH]
+   colliders: [[Collider; MAP_TILE_HEIGHT]; MAP_TILE_WIDTH]
 }
 
 impl Game {
@@ -65,7 +69,9 @@ impl Game {
          ),
          input: Input::none(),
          delta_time: 0,
-         colliders: [[false; MAP_TILE_HEIGHT]; MAP_TILE_WIDTH]
+         colliders: [[Collider::Empty; MAP_TILE_HEIGHT]; MAP_TILE_WIDTH],
+         clones: [0; 5],
+         current_clone: 0
       }
    }
 }

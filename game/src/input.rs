@@ -37,7 +37,7 @@ impl Input {
       }
    }
 
-   pub fn directon (&self) -> Vec2i {
+   pub fn direction (&self) -> Vec2i {
       if self.up_pressed { Vec2i::new(0, 1) } 
       else if self.down_pressed { Vec2i::new(0, -1) }
       else if self.right_pressed { Vec2i::new(1, 0) }

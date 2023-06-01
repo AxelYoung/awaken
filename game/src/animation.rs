@@ -47,7 +47,7 @@ impl AnimationFrame {
 }
 
 pub fn update(game: &mut Game) {
-   //animate_entities(game);
+   animate_entities(game);
 }
 
 fn animate_entities(game: &mut Game) {
