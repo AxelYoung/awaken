@@ -11,7 +11,6 @@
 [] certain items being persistent through loops?
 [] hazard
 [] animations that don't use Sprite (animating a float or vec)
-[] add components function (multiple components in one call)
 
 [] text display / UI
 [] lighting system
@@ -42,3 +41,8 @@ Upscale Chroma without lightmap: ~600
 
 the clones always have a set path
 the clones 
+
+
+harmony updates
+[] add / remove multiple components to a single entity macro
+[] add / remove  a single component to multiple entities macro

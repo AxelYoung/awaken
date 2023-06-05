@@ -4,4 +4,5 @@ members = [
     "game",
     "chroma",
     "harmony",
+    "mathrix"
 ]
