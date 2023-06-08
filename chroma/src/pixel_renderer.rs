@@ -1,5 +1,7 @@
 use wgpu::util::DeviceExt;
 
+use crate::context::GraphicsContext;
+
 use super::camera::{Camera, CameraRaw};
 use super::instance::{Instance, InstanceRaw};
 use super::texture::Texture;
@@ -53,7 +55,6 @@ pub struct PixelRenderer {
   pub index_count: u32, 
 
   pub diffuse_bind_group: wgpu::BindGroup, 
-  texture: wgpu::Texture, 
   pub texture_view: wgpu::TextureView, 
 
   pub instance_buffer: wgpu::Buffer, 
@@ -67,12 +68,7 @@ pub struct PixelRenderer {
 
 impl PixelRenderer {
   pub fn new(
-    surface: &wgpu::Surface, 
-    adapter: &wgpu::Adapter, 
-    surface_format: &wgpu::TextureFormat,
-    surface_capabilities: &wgpu::SurfaceCapabilities, 
-    queue: &wgpu::Queue, 
-    device: &wgpu::Device, 
+    context : &GraphicsContext,
     width: u32, height: u32
   ) -> Self {
 
@@ -85,18 +81,18 @@ impl PixelRenderer {
       mip_level_count: 1,
       sample_count: 1,
       dimension: wgpu::TextureDimension::D2,
-      format: *surface_format,
+      format: context.config.format,
       usage: wgpu::TextureUsages::TEXTURE_BINDING |
           wgpu::TextureUsages::RENDER_ATTACHMENT,
       view_formats: &[]
     };
 
-    let texture = device.create_texture(&texture_description);
+    let texture = context.device.create_texture(&texture_description);
     let texture_view = texture.create_view(&Default::default());
 
     let diffuse_bytes = include_bytes!("../img/sprite_sheet.png");
     let diffuse_texture = Texture::from_bytes(
-      &device, &queue, diffuse_bytes, "sprite_sheet"
+      &context.device, &context.queue, diffuse_bytes, "sprite_sheet"
     ).unwrap();
 
     let texture_layout_entry = wgpu::BindGroupLayoutEntry {
@@ -121,7 +117,7 @@ impl PixelRenderer {
       count: None
     };
 
-    let texture_bind_group_layout = device.create_bind_group_layout(
+    let texture_bind_group_layout = context.device.create_bind_group_layout(
       &wgpu::BindGroupLayoutDescriptor {
         label: Some("pixel_renderer_texture_bind_group_layout"),
         entries: &[
@@ -132,7 +128,7 @@ impl PixelRenderer {
     );
 
     let diffuse_bind_group = 
-      device.create_bind_group(&wgpu::BindGroupDescriptor {
+      context.device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("pixel_renderer_diffuse_bind_group"),
         layout: &texture_bind_group_layout,
         entries: &[
@@ -156,7 +152,7 @@ impl PixelRenderer {
     let camera_raw = camera.to_raw();
 
     let camera_buffer = 
-      device.create_buffer_init(
+      context.device.create_buffer_init(
       &wgpu::util::BufferInitDescriptor {
         label: Some("camera_buffer"),
         contents: bytemuck::cast_slice(&[camera_raw]),
@@ -166,7 +162,7 @@ impl PixelRenderer {
     );
 
     let camera_bind_group_layout =
-      device.create_bind_group_layout(
+      context.device.create_bind_group_layout(
       &wgpu::BindGroupLayoutDescriptor {
         entries: &[
           wgpu::BindGroupLayoutEntry {
@@ -185,7 +181,7 @@ impl PixelRenderer {
     );
 
     let camera_bind_group = 
-      device.create_bind_group(&wgpu::BindGroupDescriptor {
+      context.device.create_bind_group(&wgpu::BindGroupDescriptor {
         label: Some("camera_bind_group"),
         layout: &camera_bind_group_layout,
         entries: &[
@@ -197,7 +193,7 @@ impl PixelRenderer {
       }
     );
 
-    let shader = device.create_shader_module(
+    let shader = context.device.create_shader_module(
       wgpu::ShaderModuleDescriptor {
         label: Some("pixel_renderer_shader"),
         source: wgpu::ShaderSource::Wgsl(
@@ -211,7 +207,7 @@ impl PixelRenderer {
     let instance_data = 
       instances.iter().map(Instance::to_raw).collect::<Vec<_>>();
 
-    let instance_buffer = device.create_buffer_init(
+    let instance_buffer = context.device.create_buffer_init(
       &wgpu::util::BufferInitDescriptor {
         label: Some("pixel_renderer_instance_buffer"),
         contents: bytemuck::cast_slice(&instance_data),
@@ -219,7 +215,7 @@ impl PixelRenderer {
       }
     );
 
-    let render_pipeline_layout = device.create_pipeline_layout(
+    let render_pipeline_layout = context.device.create_pipeline_layout(
       &wgpu::PipelineLayoutDescriptor {
         label: Some("pixel_renderer_pipeline_layout"),
         bind_group_layouts: &[
@@ -240,7 +236,7 @@ impl PixelRenderer {
       module: &shader,
       entry_point: "fs_main",
       targets: &[Some(wgpu::ColorTargetState {
-        format: *surface_format,
+        format: context.config.format,
         blend: Some(wgpu::BlendState{
           color: wgpu::BlendComponent{
             src_factor: wgpu::BlendFactor::SrcAlpha,
@@ -271,7 +267,7 @@ impl PixelRenderer {
       bias: wgpu::DepthBiasState::default(),
     };
 
-    let pipeline = device.create_render_pipeline(
+    let pipeline = context.device.create_render_pipeline(
       &wgpu::RenderPipelineDescriptor {
         label: Some("pixel_render_pipeline"),
         layout: Some(&render_pipeline_layout),
@@ -288,7 +284,7 @@ impl PixelRenderer {
       }
     );
 
-    let vertex_buffer = device.create_buffer_init(
+    let vertex_buffer = context.device.create_buffer_init(
       &wgpu::util::BufferInitDescriptor {
         label: Some("pixel_vertex_buffer"),
         contents: bytemuck::cast_slice(VERTICES),
@@ -296,7 +292,7 @@ impl PixelRenderer {
       }
     );
 
-    let index_buffer = device.create_buffer_init(
+    let index_buffer = context.device.create_buffer_init(
       &wgpu::util::BufferInitDescriptor {
         label: Some("pixel_index_buffer"),
         contents: bytemuck::cast_slice(INDICES),
@@ -314,7 +310,6 @@ impl PixelRenderer {
       index_count,
 
       diffuse_bind_group,
-      texture,
       texture_view,
 
       instance_buffer,

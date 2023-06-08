@@ -1,4 +1,5 @@
 mod camera;
+mod context;
 mod instance;
 mod pixel_renderer;
 mod scaling;
@@ -6,17 +7,17 @@ mod texture;
 mod upscale_renderer;
 mod vertex;
 
+use wgpu::util::DeviceExt;
+
 use std::iter;
 
+use context::GraphicsContext;
 use instance::Instance;
 use pixel_renderer::PixelRenderer;
 use upscale_renderer::UpscaleRenderer;
-use wgpu::util::DeviceExt;
 
 pub struct Chroma {
-  surface: wgpu::Surface,
-  device: wgpu::Device,
-  queue: wgpu::Queue,
+  context : GraphicsContext,
   pub pixel_renderer: PixelRenderer,
   upscale_renderer: UpscaleRenderer,
   depth_texture: texture::Texture
@@ -27,78 +28,31 @@ impl Chroma {
     pixel_width: u32, pixel_height: u32, 
     window: &winit::window::Window
   ) -> Self {
-    let window_size = window.inner_size();
 
-    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-      backends: wgpu::Backends::all(),
-      dx12_shader_compiler: Default::default()
-    });
-
-    let surface = unsafe { instance.create_surface(&window) }.unwrap();
-
-    let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
-      power_preference: wgpu::PowerPreference::default(),
-      compatible_surface: Some(&surface),
-      force_fallback_adapter: false
-    }).await.unwrap();
-
-    let surface_capabilities = surface.get_capabilities(&adapter);
-
-    let surface_format = surface_capabilities.formats.iter().copied()
-      .filter(|format| format.is_srgb()).next()
-      .unwrap_or(surface_capabilities.formats[0]);
-
-    let limits = 
-      if cfg!(target_arch = "wasm32") {
-        wgpu::Limits::downlevel_webgl2_defaults()
-      } else {
-        wgpu::Limits::default()
-      };
-    
-    let (device, queue) = adapter.request_device(
-      &wgpu::DeviceDescriptor {
-        label: None,
-        features: wgpu::Features::empty(),
-        limits
-      },
-      None
-    ).await.unwrap();
-    
+    let context = pollster::block_on(GraphicsContext::new(window));
 
     let pixel_renderer = PixelRenderer::new(
-      &surface, 
-      &adapter, 
-      &surface_format, 
-      &surface_capabilities, 
-      &queue, 
-      &device, 
+      &context,
       pixel_width, 
       pixel_height
     );
 
     let upscale_renderer = UpscaleRenderer::new(
-      &surface,
-      &adapter,
-      &device,
-      window_size,
-      &surface_format,
-      &surface_capabilities,
+      &context,
       &pixel_renderer.texture_view,
       pixel_width,
       pixel_height
     );
 
     let depth_texture = texture::Texture::create_depth_texture(
-      &device, 
+      &context.device, 
       pixel_width, 
       pixel_height, 
       "depth_texture"
     );
 
     Chroma {
-      surface,
-      device,
-      queue,
+      context,
       pixel_renderer,
       upscale_renderer,
       depth_texture
@@ -108,7 +62,7 @@ impl Chroma {
   pub fn render(&mut self) {
     self.configure_instances();
 
-    let mut encoder = self.device.create_command_encoder(
+    let mut encoder = self.context.device.create_command_encoder(
       &wgpu::CommandEncoderDescriptor {
         label: Some("render_encoder")
       }
@@ -176,7 +130,7 @@ impl Chroma {
       );
     }
 
-    let output = self.surface.get_current_texture().unwrap();
+    let output = self.context.surface.get_current_texture().unwrap();
     
     let view = output.texture.create_view(
       &wgpu::TextureViewDescriptor::default()
@@ -218,7 +172,7 @@ impl Chroma {
       render_pass.draw(0..3, 0..1);
     }
 
-    self.queue.submit(iter::once(encoder.finish()));
+    self.context.queue.submit(iter::once(encoder.finish()));
     output.present();
   }
 
@@ -227,20 +181,22 @@ impl Chroma {
       self.pixel_renderer.instances.iter()
       .map(Instance::to_raw).collect::<Vec<_>>();
 
-    self.pixel_renderer.instance_buffer = self.device.create_buffer_init(
-        &wgpu::util::BufferInitDescriptor {
-          label: Some("instance_buffer"),
-          contents: bytemuck::cast_slice(&instance_data),
-          usage: wgpu::BufferUsages::VERTEX,
-        }
-      );
+    self.pixel_renderer.instance_buffer = 
+      self.context.device.create_buffer_init(
+          &wgpu::util::BufferInitDescriptor {
+            label: Some("instance_buffer"),
+            contents: bytemuck::cast_slice(&instance_data),
+            usage: wgpu::BufferUsages::VERTEX,
+          }
+      )
+    ;
   }
 
   pub fn update_camera(&mut self, x: f32, y:f32) {
     self.pixel_renderer.camera.x = x;
     self.pixel_renderer.camera.y = y;
     self.pixel_renderer.camera_raw = self.pixel_renderer.camera.to_raw();
-    self.queue.write_buffer(
+    self.context.queue.write_buffer(
       &self.pixel_renderer.camera_buffer,
       0, 
       bytemuck::cast_slice(&[self.pixel_renderer.camera_raw])

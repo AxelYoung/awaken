@@ -1,9 +1,10 @@
 use wgpu::util::DeviceExt;
 
+use crate::context::GraphicsContext;
+
 use super::scaling::ScalingMatrix;
 
 pub struct UpscaleRenderer {
-  config: wgpu::SurfaceConfiguration,
   pub pipeline: wgpu::RenderPipeline, 
   pub vertex_buffer: wgpu::Buffer, 
   pub diffuse_bind_group: wgpu::BindGroup, 
@@ -12,30 +13,15 @@ pub struct UpscaleRenderer {
 
 impl UpscaleRenderer {
   pub fn new(
-    surface: &wgpu::Surface, 
-    adapter: &wgpu::Adapter, 
-    device: &wgpu::Device, 
-    window_size: winit::dpi::PhysicalSize<u32>,
-    surface_format: &wgpu::TextureFormat,
-    surface_capabilities: &wgpu::SurfaceCapabilities, 
+    context: &GraphicsContext,
     texture_view: &wgpu::TextureView, 
     pixel_width: u32, pixel_height: u32
   ) -> Self {
 
-    let config = wgpu::SurfaceConfiguration {
-      usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-      format: *surface_format,
-      width: window_size.width,
-      height: window_size.height,
-      present_mode: wgpu::PresentMode::Fifo,
-      alpha_mode: surface_capabilities.alpha_modes[0],
-      view_formats: vec![]
-    };
-
     let shader = wgpu::include_wgsl!("../shaders/scale.wgsl");
-    let module = device.create_shader_module(shader);
+    let module = context.device.create_shader_module(shader);
 
-    let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+    let sampler = context.device.create_sampler(&wgpu::SamplerDescriptor {
       label: Some("scaling_renderer"),
       address_mode_u: wgpu::AddressMode::ClampToEdge,
       address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -57,7 +43,7 @@ impl UpscaleRenderer {
     ];
 
     let vertex_slice = bytemuck::cast_slice(&vertex_data);
-    let vertex_buffer = device.create_buffer_init(
+    let vertex_buffer = context.device.create_buffer_init(
       &wgpu::util::BufferInitDescriptor {
         label: Some("upscale_renderer_vertex_buffer"),
         contents: vertex_slice,
@@ -76,12 +62,12 @@ impl UpscaleRenderer {
 
     let matrix = ScalingMatrix::new(
       (pixel_width as f32, pixel_height as f32),
-      (window_size.width as f32, window_size.height as f32)
+      (context.config.width as f32, context.config.height as f32)
     );
 
     let transform_bytes = matrix.as_bytes();
 
-    let uniform_buffer = device.create_buffer_init(
+    let uniform_buffer = context.device.create_buffer_init(
       &wgpu::util::BufferInitDescriptor {
         label: Some("upscale_renderer_bind_matrix_uniform_buffer"),
         contents: transform_bytes,
@@ -90,7 +76,7 @@ impl UpscaleRenderer {
       }
     );
 
-    let bind_group_layout = device.create_bind_group_layout(
+    let bind_group_layout = context.device.create_bind_group_layout(
       &wgpu::BindGroupLayoutDescriptor {
         label: Some("upscale_renderer_bind_group_layout"),
         entries: &[
@@ -130,7 +116,7 @@ impl UpscaleRenderer {
       }
     );
 
-    let diffuse_bind_group = device.create_bind_group(
+    let diffuse_bind_group = context.device.create_bind_group(
       &wgpu::BindGroupDescriptor {
         label: Some("upscale_renderer_bind_group"),
         layout: &bind_group_layout,
@@ -151,7 +137,7 @@ impl UpscaleRenderer {
       }
     );
 
-    let pipeline_layout = device.create_pipeline_layout(
+    let pipeline_layout = context.device.create_pipeline_layout(
       &wgpu::PipelineLayoutDescriptor {
         label: Some("upscale_renderer_pipeline_layout"),
         bind_group_layouts: &[&bind_group_layout],
@@ -159,7 +145,7 @@ impl UpscaleRenderer {
       }
     );
 
-    let pipeline = device.create_render_pipeline(
+    let pipeline = context.device.create_render_pipeline(
       &wgpu::RenderPipelineDescriptor {
         label: Some("upscale_renderer_pipeline"),
         layout: Some(&pipeline_layout),
@@ -175,7 +161,7 @@ impl UpscaleRenderer {
           module: &module,
           entry_point: "fs_main",
           targets: &[Some(wgpu::ColorTargetState {
-            format: *surface_format,
+            format: context.config.format,
             blend: Some(wgpu::BlendState::REPLACE),
             write_mask: wgpu::ColorWrites::ALL
           })]
@@ -186,10 +172,9 @@ impl UpscaleRenderer {
 
     let clip_rect = matrix.clip_rect();
 
-    surface.configure(&device, &config);
+    context.surface.configure(&context.device, &context.config);
 
     Self {
-      config,
       pipeline,
       vertex_buffer,
       diffuse_bind_group,
