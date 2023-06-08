@@ -221,8 +221,6 @@ fn check_buttons(game: &mut Game) {
       game.world.get_component_from_entity_mut::<Sprite>(button)
       .unwrap().as_mut().unwrap();
 
-    button_sprite.index_x = 4; 
-
     button_sprite.index_y = 7;
   }
 
