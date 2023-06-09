@@ -4,14 +4,14 @@ use crate::context::GraphicsContext;
 
 use super::scaling::ScalingMatrix;
 
-pub struct UpscaleRenderer {
+pub struct UpscalePipeline {
   pub pipeline: wgpu::RenderPipeline, 
   pub vertex_buffer: wgpu::Buffer, 
   pub diffuse_bind_group: wgpu::BindGroup, 
   pub clip_rect: (u32, u32, u32, u32)
 }
 
-impl UpscaleRenderer {
+impl UpscalePipeline {
   pub fn new(
     context: &GraphicsContext,
     texture_view: &wgpu::TextureView, 
@@ -180,5 +180,43 @@ impl UpscaleRenderer {
       diffuse_bind_group,
       clip_rect
     }
+  }
+
+  pub fn pass(
+    &mut self, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView
+  ) {
+    let mut upscale_pass = encoder.begin_render_pass(
+      &wgpu::RenderPassDescriptor {
+        label: Some("upscale_pass"),
+        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+          view: view,
+          resolve_target: None,
+          ops: wgpu::Operations {
+            load: wgpu::LoadOp::Clear(wgpu::Color::WHITE),
+            store: true
+          }
+        })],
+        depth_stencil_attachment: None
+      }
+    );
+    
+    upscale_pass.set_pipeline(&self.pipeline);
+
+    upscale_pass.set_bind_group(
+      0, &self.diffuse_bind_group, &[]
+    );
+
+    upscale_pass.set_vertex_buffer(
+      0, self.vertex_buffer.slice(..)
+    );
+
+    upscale_pass.set_scissor_rect(
+      self.clip_rect.0, 
+      self.clip_rect.1, 
+      self.clip_rect.2,
+      self.clip_rect.3
+    );
+
+    upscale_pass.draw(0..3, 0..1);
   }
 } 

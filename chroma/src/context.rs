@@ -1,17 +1,25 @@
 pub struct GraphicsContext {
+  /// Window that is drawn onto
   pub surface: wgpu::Surface,
+  /// Handle to the GPU
   pub device: wgpu::Device,
+  /// Handle to the command buffer on device
   pub queue: wgpu::Queue,
+  /// Describes the Surface
   pub config: wgpu::SurfaceConfiguration,
 }
 
 impl GraphicsContext {
   pub async fn new(window: &winit::window::Window) -> Self {
+
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
       backends: wgpu::Backends::all(),
       dx12_shader_compiler: Default::default()
     });
 
+    // Surface needs to live as long as the window that created it
+    // Context owns surface, chroma owns context, game owns context and window
+    // This should always be safe
     let surface = unsafe { instance.create_surface(&window) }.unwrap();
 
     let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {

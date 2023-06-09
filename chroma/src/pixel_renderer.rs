@@ -1,6 +1,7 @@
 use wgpu::util::DeviceExt;
 
 use crate::context::GraphicsContext;
+use crate::texture;
 
 use super::camera::{Camera, CameraRaw};
 use super::instance::{Instance, InstanceRaw};
@@ -47,7 +48,7 @@ const VERTICES: &[Vertex] = &[
 
 const INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];
 
-pub struct PixelRenderer {
+pub struct PixelPipeline {
   pub pipeline: wgpu::RenderPipeline, 
 
   pub vertex_buffer: wgpu::Buffer, 
@@ -66,7 +67,7 @@ pub struct PixelRenderer {
   pub camera_bind_group: wgpu::BindGroup
 }
 
-impl PixelRenderer {
+impl PixelPipeline {
   pub fn new(
     context : &GraphicsContext,
     width: u32, height: u32
@@ -344,5 +345,70 @@ impl PixelRenderer {
 
   pub fn clear(&mut self) {
     self.instances = vec![];
+  }
+
+  pub fn pass(
+    &mut self, encoder: &mut wgpu::CommandEncoder, 
+    depth_texture: &texture::Texture
+  ) { 
+    let mut pixel_pass = encoder.begin_render_pass(
+      &wgpu::RenderPassDescriptor {
+        label: Some("pixel_pass"),
+        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+          view: &self.texture_view,
+          resolve_target: None,
+          ops: wgpu::Operations {
+            load: wgpu::LoadOp::Clear(wgpu::Color {
+              r: 0.0,
+              g: 1.0,
+              b: 0.0,
+              a: 1.0,
+            }),
+            store: true,
+          },
+        })],
+        depth_stencil_attachment: Some(
+            wgpu::RenderPassDepthStencilAttachment {
+            view: &depth_texture.view,
+            depth_ops: Some(wgpu::Operations {
+              load: wgpu::LoadOp::Clear(1.0),
+              store: true,
+            }),
+            stencil_ops: None,
+          }
+        ),
+      }
+    );
+
+    pixel_pass.set_pipeline(&self.pipeline
+    );
+    pixel_pass.set_bind_group(
+      0, &self.diffuse_bind_group, &[]
+    );
+    pixel_pass.set_bind_group(
+      1, &self.camera_bind_group, &[]
+    );
+
+    pixel_pass.set_vertex_buffer(
+      0, self.vertex_buffer.slice(..)
+    );
+    pixel_pass.set_index_buffer(
+      self.index_buffer.slice(..), 
+      wgpu::IndexFormat::Uint16
+    );
+
+    pixel_pass.set_vertex_buffer(
+      1, self.instance_buffer.slice(..)
+    );
+    pixel_pass.set_index_buffer(
+      self.index_buffer.slice(..), 
+      wgpu::IndexFormat::Uint16
+    );
+
+    pixel_pass.draw_indexed(
+      0..self.index_count, 
+      0, 
+      0..self.instances.len() as u32
+    );
   }
 }

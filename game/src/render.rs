@@ -28,7 +28,7 @@ impl Sprite {
 }
 
 pub fn draw(game: &mut Game){
-  game.chroma.pixel_renderer.clear();
+  game.chroma.pixel_pipeline.clear();
 
   draw_entity(game);
 
@@ -40,7 +40,7 @@ fn draw_entity(game: &mut Game) {
     |position: &Position, sprite : &Sprite| {
       if sprite.render {
         let z = (127 - sprite.layer) as f32 / 10000.0;
-        game.chroma.pixel_renderer.add_tile(
+        game.chroma.pixel_pipeline.add_tile(
           position.x, position.y, z, 
           sprite.index_x, sprite.index_y
         );
